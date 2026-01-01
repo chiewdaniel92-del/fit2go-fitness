@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kynare Wellness Design System */
+/* Kynare Wellness Design System - ORANGE Theme */
 
 @layer base {
   :root {
@@ -15,20 +15,20 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 15%;
 
-    /* Warm wellness green - calming, natural */
-    --primary: 158 45% 42%;
+    /* Kynare Orange - warm, energetic */
+    --primary: 24 95% 53%;
     --primary-foreground: 0 0% 100%;
 
-    /* Soft sage secondary */
-    --secondary: 150 20% 94%;
-    --secondary-foreground: 158 45% 32%;
+    /* Soft warm secondary */
+    --secondary: 30 30% 96%;
+    --secondary-foreground: 24 80% 40%;
 
     /* Warm neutral muted */
-    --muted: 40 20% 96%;
+    --muted: 30 20% 96%;
     --muted-foreground: 220 10% 45%;
 
-    /* Soft accent for highlights */
-    --accent: 32 80% 55%;
+    /* Accent for highlights */
+    --accent: 24 90% 58%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
@@ -36,24 +36,24 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 158 45% 42%;
+    --ring: 24 95% 53%;
 
     --radius: 0.75rem;
 
-    /* Custom wellness tokens */
-    --wellness-sage: 150 30% 85%;
-    --wellness-cream: 40 40% 97%;
-    --wellness-warm: 32 60% 50%;
-    --wellness-deep: 158 50% 25%;
+    /* Custom Kynare tokens */
+    --kynare-orange: 24 95% 53%;
+    --kynare-orange-light: 30 100% 96%;
+    --kynare-orange-dark: 20 90% 45%;
+    --kynare-cream: 40 40% 97%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 158 45% 42%;
+    --sidebar-primary: 24 95% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 150 20% 94%;
-    --sidebar-accent-foreground: 158 45% 32%;
+    --sidebar-accent: 30 30% 96%;
+    --sidebar-accent-foreground: 24 80% 40%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 158 45% 42%;
+    --sidebar-ring: 24 95% 53%;
   }
 
   .dark {
@@ -66,16 +66,16 @@
     --popover: 220 20% 13%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 158 50% 50%;
+    --primary: 24 90% 55%;
     --primary-foreground: 220 20% 10%;
 
-    --secondary: 158 20% 20%;
-    --secondary-foreground: 158 50% 70%;
+    --secondary: 24 20% 20%;
+    --secondary-foreground: 24 80% 70%;
 
     --muted: 220 15% 18%;
     --muted-foreground: 220 10% 60%;
 
-    --accent: 32 70% 50%;
+    --accent: 24 85% 50%;
     --accent-foreground: 220 20% 10%;
 
     --destructive: 0 62.8% 40%;
@@ -83,21 +83,21 @@
 
     --border: 220 15% 20%;
     --input: 220 15% 20%;
-    --ring: 158 50% 50%;
+    --ring: 24 90% 55%;
 
-    --wellness-sage: 150 20% 25%;
-    --wellness-cream: 40 20% 15%;
-    --wellness-warm: 32 50% 45%;
-    --wellness-deep: 158 40% 40%;
+    --kynare-orange: 24 90% 55%;
+    --kynare-orange-light: 24 30% 20%;
+    --kynare-orange-dark: 20 80% 50%;
+    --kynare-cream: 40 20% 15%;
 
     --sidebar-background: 220 20% 10%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 158 50% 50%;
+    --sidebar-primary: 24 90% 55%;
     --sidebar-primary-foreground: 220 20% 10%;
-    --sidebar-accent: 158 20% 20%;
-    --sidebar-accent-foreground: 158 50% 70%;
+    --sidebar-accent: 24 20% 20%;
+    --sidebar-accent-foreground: 24 80% 70%;
     --sidebar-border: 220 15% 20%;
-    --sidebar-ring: 158 50% 50%;
+    --sidebar-ring: 24 90% 55%;
   }
 }
 

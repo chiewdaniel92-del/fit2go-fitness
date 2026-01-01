@@ -5,11 +5,16 @@ import { AgeStep } from "./AgeStep";
 import { PrimaryGoalStep } from "./PrimaryGoalStep";
 import { CurrentStateStep } from "./CurrentStateStep";
 import { GenericVoiceStep } from "./GenericVoiceStep";
+import { ProcessingStep } from "./ProcessingStep";
+import { ResultsStep } from "./ResultsStep";
+import { usePrimaryGoalOptions, useCurrentStateOptions } from "@/hooks/useAssessmentOptions";
+import { toast } from "sonner";
 import type { AssessmentStep, AssessmentData } from "@/types/assessment";
 import { VOICE_STEPS, STEP_ORDER } from "@/types/assessment";
 
 export function AssessmentFlow() {
   const [currentStep, setCurrentStep] = useState<AssessmentStep>("welcome");
+  const [assessment, setAssessment] = useState<string>("");
   const [data, setData] = useState<AssessmentData>({
     age: null,
     primaryGoalId: null,
@@ -23,6 +28,10 @@ export function AssessmentFlow() {
     systemHistoryTranscript: null,
     systemHistoryAudioUrl: null,
   });
+  
+  // Fetch options to get labels for AI
+  const { data: primaryGoalOptions } = usePrimaryGoalOptions();
+  const { data: currentStateOptions } = useCurrentStateOptions();
   
   // Store audio blobs for upload later
   const audioBlobsRef = useRef<Record<string, Blob>>({});
@@ -88,6 +97,51 @@ export function AssessmentFlow() {
     goToStep(getNextStep(stepId));
   };
 
+  // Prepare data for AI assessment
+  const getAssessmentPayload = () => {
+    const primaryGoalLabel = primaryGoalOptions?.find(o => o.id === data.primaryGoalId)?.label || "Not specified";
+    const currentStateLabel = currentStateOptions?.find(o => o.id === data.currentStateId)?.label || "Not specified";
+    
+    return {
+      age: data.age || 0,
+      primaryGoal: primaryGoalLabel,
+      currentState: currentStateLabel,
+      bodyContext: data.bodyContextTranscript || "",
+      primaryBottleneck: data.primaryBottleneckTranscript || "",
+      successCriteria: data.successCriteriaTranscript || "",
+      systemHistory: data.systemHistoryTranscript || "",
+    };
+  };
+
+  const handleAssessmentComplete = useCallback((generatedAssessment: string) => {
+    setAssessment(generatedAssessment);
+    goToStep("results");
+  }, [goToStep]);
+
+  const handleAssessmentError = useCallback((error: string) => {
+    toast.error(error);
+    goToStep("voice-history"); // Go back to last step
+  }, [goToStep]);
+
+  const handleRetry = useCallback(() => {
+    setData({
+      age: null,
+      primaryGoalId: null,
+      currentStateId: null,
+      bodyContextTranscript: null,
+      bodyContextAudioUrl: null,
+      primaryBottleneckTranscript: null,
+      primaryBottleneckAudioUrl: null,
+      successCriteriaTranscript: null,
+      successCriteriaAudioUrl: null,
+      systemHistoryTranscript: null,
+      systemHistoryAudioUrl: null,
+    });
+    setAssessment("");
+    audioBlobsRef.current = {};
+    goToStep("welcome");
+  }, [goToStep]);
+
   // Find config for current voice step
   const currentVoiceConfig = VOICE_STEPS.find(s => s.id === currentStep);
 
@@ -137,12 +191,25 @@ export function AssessmentFlow() {
         )}
 
         {currentStep === "processing" && (
+          <ProcessingStep
+            assessmentData={getAssessmentPayload()}
+            onComplete={handleAssessmentComplete}
+            onError={handleAssessmentError}
+          />
+        )}
+
+        {currentStep === "results" && (
+          <ResultsStep
+            assessment={assessment}
+            onEmailCapture={() => goToStep("email-capture")}
+            onRetry={handleRetry}
+          />
+        )}
+
+        {currentStep === "email-capture" && (
           <div className="text-center p-8">
-            <h2 className="text-2xl font-bold mb-4">Analyzing your responses...</h2>
-            <p className="text-muted-foreground">AI Assessment coming in Phase 4</p>
-            <pre className="mt-8 p-4 bg-muted rounded-lg text-left text-sm max-w-md mx-auto overflow-auto">
-              {JSON.stringify(data, null, 2)}
-            </pre>
+            <h2 className="text-2xl font-bold mb-4">Email Capture</h2>
+            <p className="text-muted-foreground">Coming soon - optional email to save your results</p>
           </div>
         )}
       </main>

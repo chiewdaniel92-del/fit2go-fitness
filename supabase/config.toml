@@ -1,1 +1,4 @@
 project_id = "epyjjkwzwjjveqqfttpj"
+
+[functions.generate-assessment]
+verify_jwt = false

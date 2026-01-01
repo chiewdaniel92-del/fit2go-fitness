@@ -14,7 +14,176 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analytics_events: {
+        Row: {
+          assessment_id: string | null
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          ip_address: unknown
+          page_url: string | null
+          session_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          page_url?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          page_url?: string | null
+          session_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_options_current_state: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      assessment_options_primary_goal: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      assessments: {
+        Row: {
+          access_token: string
+          age: number
+          ai_assessment: string | null
+          ai_recommendations: Json | null
+          completed_at: string | null
+          completion_time_seconds: number | null
+          created_at: string
+          current_state_id: string
+          email: string | null
+          honeypot_triggered: boolean | null
+          id: string
+          ip_address: unknown
+          primary_goal_id: string
+          session_id: string | null
+          status: string
+          updated_at: string
+          voice_audio_url: string | null
+          voice_transcript: string | null
+        }
+        Insert: {
+          access_token?: string
+          age: number
+          ai_assessment?: string | null
+          ai_recommendations?: Json | null
+          completed_at?: string | null
+          completion_time_seconds?: number | null
+          created_at?: string
+          current_state_id: string
+          email?: string | null
+          honeypot_triggered?: boolean | null
+          id?: string
+          ip_address?: unknown
+          primary_goal_id: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          voice_audio_url?: string | null
+          voice_transcript?: string | null
+        }
+        Update: {
+          access_token?: string
+          age?: number
+          ai_assessment?: string | null
+          ai_recommendations?: Json | null
+          completed_at?: string | null
+          completion_time_seconds?: number | null
+          created_at?: string
+          current_state_id?: string
+          email?: string | null
+          honeypot_triggered?: boolean | null
+          id?: string
+          ip_address?: unknown
+          primary_goal_id?: string
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          voice_audio_url?: string | null
+          voice_transcript?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_current_state_id_fkey"
+            columns: ["current_state_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_options_current_state"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_primary_goal_id_fkey"
+            columns: ["primary_goal_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_options_primary_goal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

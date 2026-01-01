@@ -9,8 +9,15 @@ export interface AssessmentData {
   age: number | null;
   primaryGoalId: string | null;
   currentStateId: string | null;
-  voiceTranscript: string | null;
-  voiceAudioUrl: string | null;
+  // Voice transcripts for each voice step
+  bodyContextTranscript: string | null;
+  bodyContextAudioUrl: string | null;
+  primaryBottleneckTranscript: string | null;
+  primaryBottleneckAudioUrl: string | null;
+  successCriteriaTranscript: string | null;
+  successCriteriaAudioUrl: string | null;
+  systemHistoryTranscript: string | null;
+  systemHistoryAudioUrl: string | null;
 }
 
 export type AssessmentStep = 
@@ -18,7 +25,10 @@ export type AssessmentStep =
   | 'age' 
   | 'primary-goal' 
   | 'current-state' 
-  | 'voice-recording' 
+  | 'voice-body-context'      // Step 3: What's working vs not
+  | 'voice-bottleneck'        // Step 4: Fix ONE thing
+  | 'voice-success'           // Step 5: Six months from now
+  | 'voice-history'           // Step 6: What have you tried
   | 'processing' 
   | 'results' 
   | 'email-capture';
@@ -28,7 +38,10 @@ export const STEP_ORDER: AssessmentStep[] = [
   'age',
   'primary-goal',
   'current-state',
-  'voice-recording',
+  'voice-body-context',
+  'voice-bottleneck',
+  'voice-success',
+  'voice-history',
   'processing',
   'results',
   'email-capture',
@@ -43,3 +56,45 @@ export function getProgressPercent(step: AssessmentStep): number {
   // Welcome is 0%, email-capture is 100%
   return Math.round((index / (STEP_ORDER.length - 1)) * 100);
 }
+
+// Voice step configuration
+export interface VoiceStepConfig {
+  id: AssessmentStep;
+  title: string;
+  subtitle: string;
+  hint?: string;
+  transcriptKey: keyof AssessmentData;
+  audioUrlKey: keyof AssessmentData;
+}
+
+export const VOICE_STEPS: VoiceStepConfig[] = [
+  {
+    id: 'voice-body-context',
+    title: "Tell us about your body or training right now",
+    subtitle: "What's working, what's frustrating, and what feels unclear or inconsistent?",
+    transcriptKey: 'bodyContextTranscript',
+    audioUrlKey: 'bodyContextAudioUrl',
+  },
+  {
+    id: 'voice-bottleneck',
+    title: "If you could fix ONE thing about your body or performance right now, what would it be?",
+    subtitle: "",
+    hint: "Examples: pain, energy, strength, mobility, recovery, consistency, confidence",
+    transcriptKey: 'primaryBottleneckTranscript',
+    audioUrlKey: 'primaryBottleneckAudioUrl',
+  },
+  {
+    id: 'voice-success',
+    title: "Six months from now, what needs to be true for you to feel like this was a win?",
+    subtitle: "",
+    transcriptKey: 'successCriteriaTranscript',
+    audioUrlKey: 'successCriteriaAudioUrl',
+  },
+  {
+    id: 'voice-history',
+    title: "What have you already tried?",
+    subtitle: "What helped? What didn't?",
+    transcriptKey: 'systemHistoryTranscript',
+    audioUrlKey: 'systemHistoryAudioUrl',
+  },
+];

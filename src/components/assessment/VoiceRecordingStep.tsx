@@ -43,10 +43,14 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
           <Mic className="w-8 h-8 text-primary" />
         </div>
 
-        <h2 className="text-3xl font-bold text-foreground mb-3">Tell us more about you</h2>
-        <p className="text-muted-foreground leading-relaxed">
-          Record a brief message about your wellness goals, challenges, or anything you'd like us to know.
-          This helps personalize your assessment.
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 leading-tight">
+          Tell us about your body or training right now
+        </h2>
+        <p className="text-lg text-muted-foreground leading-relaxed">
+          What's working, what's frustrating, and what feels unclear or inconsistent?
+        </p>
+        <p className="text-sm text-muted-foreground mt-3">
+          Voice recording up to 60 seconds
         </p>
       </div>
 

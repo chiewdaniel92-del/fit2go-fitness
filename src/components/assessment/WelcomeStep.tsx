@@ -42,17 +42,16 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
         </Button>
         <p className="text-sm text-muted-foreground flex items-center gap-1.5">
           <Sparkles className="w-4 h-4" />
-          Takes about 3 minutes
+          Takes about 5 minutes
         </p>
       </div>
 
       <div 
-        className="mt-12 grid grid-cols-3 gap-6 text-center animate-slide-up max-w-lg"
+        className="mt-12 grid grid-cols-2 gap-8 text-center animate-slide-up max-w-md"
         style={{ animationDelay: "0.5s" }}
       >
         {[
           { label: "Personalized", value: "100%" },
-          { label: "Questions", value: "4" },
           { label: "AI-Powered", value: "✓" },
         ].map((stat) => (
           <div key={stat.label} className="p-4">

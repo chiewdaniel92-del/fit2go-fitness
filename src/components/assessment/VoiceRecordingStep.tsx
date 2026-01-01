@@ -5,7 +5,6 @@ import { AudioWaveform } from "./AudioWaveform";
 import { AudioPlayback } from "./AudioPlayback";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { ArrowLeft, ArrowRight, Mic, Square, AlertCircle, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface VoiceRecordingStepProps {
   onSubmit: (audioBlob: Blob) => void;
@@ -21,6 +20,7 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
     audioUrl,
     elapsedTime,
     analyserNode,
+    inputLevel,
     errorMessage,
     startRecording,
     stopRecording,
@@ -33,19 +33,20 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
     }
   };
 
+  const showNoInputWarning =
+    state === "recording" && elapsedTime > 1.5 && inputLevel < 0.03;
+
   return (
     <StepContainer className="flex flex-col items-center">
       <div className="w-full max-w-lg text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
           <Mic className="w-8 h-8 text-primary" />
         </div>
-        
-        <h2 className="text-3xl font-bold text-foreground mb-3">
-          Tell us more about you
-        </h2>
+
+        <h2 className="text-3xl font-bold text-foreground mb-3">Tell us more about you</h2>
         <p className="text-muted-foreground leading-relaxed">
-          Record a brief message about your wellness goals, challenges, or anything 
-          you'd like us to know. This helps personalize your assessment.
+          Record a brief message about your wellness goals, challenges, or anything you'd like us to know.
+          This helps personalize your assessment.
         </p>
       </div>
 
@@ -72,17 +73,9 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
         {/* Idle State - Ready to record */}
         {state === "idle" && (
           <>
-            <CircularTimer
-              elapsed={0}
-              maxDuration={MAX_DURATION}
-              isRecording={false}
-            />
-            
-            <AudioWaveform
-              analyserNode={null}
-              isRecording={false}
-              className="opacity-50"
-            />
+            <CircularTimer elapsed={0} maxDuration={MAX_DURATION} isRecording={false} />
+
+            <AudioWaveform analyserNode={null} isRecording={false} className="opacity-50" />
 
             <button
               onClick={startRecording}
@@ -90,10 +83,8 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
             >
               <Mic className="w-10 h-10 text-primary-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </button>
-            
-            <p className="text-sm text-muted-foreground">
-              Tap to start recording
-            </p>
+
+            <p className="text-sm text-muted-foreground">Tap to start recording</p>
           </>
         )}
 
@@ -108,16 +99,35 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
         {/* Recording State */}
         {state === "recording" && (
           <>
-            <CircularTimer
-              elapsed={elapsedTime}
-              maxDuration={MAX_DURATION}
-              isRecording={true}
-            />
-            
-            <AudioWaveform
-              analyserNode={analyserNode}
-              isRecording={true}
-            />
+            <CircularTimer elapsed={elapsedTime} maxDuration={MAX_DURATION} isRecording={true} />
+
+            <AudioWaveform analyserNode={analyserNode} isRecording={true} />
+
+            {/* Input level meter */}
+            <div className="w-full max-w-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Mic input</span>
+                <span className="text-sm font-medium text-foreground">
+                  {Math.round(inputLevel * 100)}%
+                </span>
+              </div>
+              <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-100"
+                  style={{ width: `${Math.round(inputLevel * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {showNoInputWarning && (
+              <div className="w-full max-w-md p-3 rounded-xl border border-border bg-card text-left">
+                <p className="text-sm font-medium text-foreground">We cant hear your microphone yet.</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  If youre speaking and the bar stays near 0%, your device may be using a different mic,
+                  or the browser isnt sending the mic audio to the recorder.
+                </p>
+              </div>
+            )}
 
             <button
               onClick={stopRecording}
@@ -125,10 +135,8 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
             >
               <Square className="w-8 h-8 text-destructive-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </button>
-            
-            <p className="text-sm text-muted-foreground">
-              Tap to stop recording
-            </p>
+
+            <p className="text-sm text-muted-foreground">Tap to stop recording</p>
           </>
         )}
 
@@ -144,10 +152,7 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
               </div>
             </div>
 
-            <AudioPlayback
-              audioUrl={audioUrl}
-              onReset={resetRecording}
-            />
+            <AudioPlayback audioUrl={audioUrl} onReset={resetRecording} />
 
             <p className="text-sm text-muted-foreground text-center">
               Listen to your recording or record again if you'd like
@@ -158,22 +163,13 @@ export function VoiceRecordingStep({ onSubmit, onBack }: VoiceRecordingStepProps
 
       {/* Navigation */}
       <div className="flex gap-3 justify-center mt-8">
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={onBack}
-          className="px-6"
-        >
+        <Button variant="outline" size="lg" onClick={onBack} className="px-6">
           <ArrowLeft className="mr-2 w-4 h-4" />
           Back
         </Button>
-        
+
         {state === "stopped" && audioBlob && (
-          <Button
-            size="lg"
-            onClick={handleSubmit}
-            className="px-8"
-          >
+          <Button size="lg" onClick={handleSubmit} className="px-8">
             Continue
             <ArrowRight className="ml-2 w-4 h-4" />
           </Button>

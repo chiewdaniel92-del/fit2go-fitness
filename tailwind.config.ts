@@ -57,11 +57,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        wellness: {
-          sage: "hsl(var(--wellness-sage))",
-          cream: "hsl(var(--wellness-cream))",
-          warm: "hsl(var(--wellness-warm))",
-          deep: "hsl(var(--wellness-deep))",
+        kynare: {
+          orange: "hsl(var(--kynare-orange))",
+          "orange-light": "hsl(var(--kynare-orange-light))",
+          "orange-dark": "hsl(var(--kynare-orange-dark))",
+          cream: "hsl(var(--kynare-cream))",
         },
       },
       borderRadius: {

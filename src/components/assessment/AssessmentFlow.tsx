@@ -65,17 +65,24 @@ export function AssessmentFlow() {
     goToStep("voice-body-context");
   };
 
-  // Generic handler for voice steps
-  const handleVoiceSubmit = (stepId: AssessmentStep, audioBlob: Blob) => {
+  // Generic handler for voice/text steps
+  const handleVoiceSubmit = (stepId: AssessmentStep, audioBlob: Blob | null, transcript: string) => {
     const config = VOICE_STEPS.find(s => s.id === stepId);
     if (!config) return;
 
-    // Store blob for later upload
-    audioBlobsRef.current[stepId] = audioBlob;
+    if (audioBlob) {
+      // Store blob for later upload
+      audioBlobsRef.current[stepId] = audioBlob;
+      
+      // Create temporary URL for playback
+      const audioUrl = URL.createObjectURL(audioBlob);
+      updateData(config.audioUrlKey as keyof AssessmentData, audioUrl as AssessmentData[keyof AssessmentData]);
+    }
     
-    // Create temporary URL for playback
-    const audioUrl = URL.createObjectURL(audioBlob);
-    updateData(config.audioUrlKey as keyof AssessmentData, audioUrl as AssessmentData[keyof AssessmentData]);
+    // Store transcript (either typed or will be transcribed later)
+    if (transcript) {
+      updateData(config.transcriptKey as keyof AssessmentData, transcript as AssessmentData[keyof AssessmentData]);
+    }
     
     // Move to next step
     goToStep(getNextStep(stepId));
@@ -119,12 +126,12 @@ export function AssessmentFlow() {
           />
         )}
 
-        {/* Render voice steps using generic component */}
+        {/* Render voice/text steps using generic component */}
         {currentVoiceConfig && (
           <GenericVoiceStep
             key={currentVoiceConfig.id}
             config={currentVoiceConfig}
-            onSubmit={(blob) => handleVoiceSubmit(currentStep, blob)}
+            onSubmit={(blob, transcript) => handleVoiceSubmit(currentStep, blob, transcript)}
             onBack={() => goToStep(getPreviousStep(currentStep))}
           />
         )}

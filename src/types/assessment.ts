@@ -31,7 +31,8 @@ export type AssessmentStep =
   | 'voice-history'           // Step 6: What have you tried
   | 'processing' 
   | 'results' 
-  | 'email-capture';
+  | 'email-capture'
+  | 'success';
 
 export const STEP_ORDER: AssessmentStep[] = [
   'welcome',
@@ -45,6 +46,7 @@ export const STEP_ORDER: AssessmentStep[] = [
   'processing',
   'results',
   'email-capture',
+  'success',
 ];
 
 export function getStepIndex(step: AssessmentStep): number {

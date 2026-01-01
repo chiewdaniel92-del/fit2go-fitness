@@ -7,7 +7,10 @@ import { CurrentStateStep } from "./CurrentStateStep";
 import { GenericVoiceStep } from "./GenericVoiceStep";
 import { ProcessingStep } from "./ProcessingStep";
 import { ResultsStep } from "./ResultsStep";
+import { EmailCaptureStep } from "./EmailCaptureStep";
+import { SuccessStep } from "./SuccessStep";
 import { usePrimaryGoalOptions, useCurrentStateOptions } from "@/hooks/useAssessmentOptions";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AssessmentStep, AssessmentData } from "@/types/assessment";
 import { VOICE_STEPS, STEP_ORDER } from "@/types/assessment";
@@ -15,6 +18,10 @@ import { VOICE_STEPS, STEP_ORDER } from "@/types/assessment";
 export function AssessmentFlow() {
   const [currentStep, setCurrentStep] = useState<AssessmentStep>("welcome");
   const [assessment, setAssessment] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const startTimeRef = useRef<Date | null>(null);
+  
   const [data, setData] = useState<AssessmentData>({
     age: null,
     primaryGoalId: null,
@@ -57,6 +64,11 @@ export function AssessmentFlow() {
   const getPreviousStep = (current: AssessmentStep): AssessmentStep => {
     const currentIndex = STEP_ORDER.indexOf(current);
     return STEP_ORDER[currentIndex - 1] || 'welcome';
+  };
+
+  const handleWelcomeStart = () => {
+    startTimeRef.current = new Date();
+    goToStep("age");
   };
 
   const handleAgeSubmit = (age: number) => {
@@ -113,6 +125,74 @@ export function AssessmentFlow() {
     };
   };
 
+  // Combine all voice transcripts into a formatted string
+  const getCombinedTranscript = () => {
+    const sections = [
+      { title: "Body Context", content: data.bodyContextTranscript },
+      { title: "Primary Bottleneck", content: data.primaryBottleneckTranscript },
+      { title: "Success Criteria", content: data.successCriteriaTranscript },
+      { title: "What You've Tried", content: data.systemHistoryTranscript },
+    ];
+
+    return sections
+      .filter(s => s.content)
+      .map(s => `## ${s.title}\n${s.content}`)
+      .join("\n\n");
+  };
+
+  // Calculate completion time in seconds
+  const getCompletionTimeSeconds = () => {
+    if (!startTimeRef.current) return null;
+    return Math.floor((new Date().getTime() - startTimeRef.current.getTime()) / 1000);
+  };
+
+  // Save assessment to database
+  const handleSaveAssessment = async (email: string | null, honeypotValue: string) => {
+    if (!data.primaryGoalId || !data.currentStateId || !data.age) {
+      toast.error("Missing required assessment data");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const completionTime = getCompletionTimeSeconds();
+      const combinedTranscript = getCombinedTranscript();
+      const honeypotTriggered = honeypotValue.length > 0;
+
+      const { data: insertedData, error } = await supabase
+        .from("assessments")
+        .insert({
+          age: data.age,
+          primary_goal_id: data.primaryGoalId,
+          current_state_id: data.currentStateId,
+          voice_transcript: combinedTranscript || null,
+          ai_assessment: assessment,
+          email: email,
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          honeypot_triggered: honeypotTriggered,
+          completion_time_seconds: completionTime,
+        })
+        .select("access_token")
+        .single();
+
+      if (error) {
+        console.error("Error saving assessment:", error);
+        throw new Error("Failed to save assessment");
+      }
+
+      setAccessToken(insertedData.access_token);
+      goToStep("success");
+      toast.success("Assessment saved successfully!");
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("Failed to save assessment. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleAssessmentComplete = useCallback((generatedAssessment: string) => {
     setAssessment(generatedAssessment);
     goToStep("results");
@@ -138,6 +218,8 @@ export function AssessmentFlow() {
       systemHistoryAudioUrl: null,
     });
     setAssessment("");
+    setAccessToken(null);
+    startTimeRef.current = null;
     audioBlobsRef.current = {};
     goToStep("welcome");
   }, [goToStep]);
@@ -153,7 +235,7 @@ export function AssessmentFlow() {
 
       <main className="flex-1 flex items-center justify-center">
         {currentStep === "welcome" && (
-          <WelcomeStep onStart={() => goToStep("age")} />
+          <WelcomeStep onStart={handleWelcomeStart} />
         )}
 
         {currentStep === "age" && (
@@ -207,10 +289,18 @@ export function AssessmentFlow() {
         )}
 
         {currentStep === "email-capture" && (
-          <div className="text-center p-8">
-            <h2 className="text-2xl font-bold mb-4">Email Capture</h2>
-            <p className="text-muted-foreground">Coming soon - optional email to save your results</p>
-          </div>
+          <EmailCaptureStep
+            onSave={handleSaveAssessment}
+            isLoading={isSaving}
+            onBack={() => goToStep("results")}
+          />
+        )}
+
+        {currentStep === "success" && accessToken && (
+          <SuccessStep
+            accessToken={accessToken}
+            onStartNew={handleRetry}
+          />
         )}
       </main>
     </div>

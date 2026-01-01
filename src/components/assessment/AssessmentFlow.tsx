@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { ProgressIndicator } from "./ProgressIndicator";
 import { WelcomeStep } from "./WelcomeStep";
 import { AgeStep } from "./AgeStep";
 import { PrimaryGoalStep } from "./PrimaryGoalStep";
 import { CurrentStateStep } from "./CurrentStateStep";
+import { VoiceRecordingStep } from "./VoiceRecordingStep";
 import type { AssessmentStep, AssessmentData } from "@/types/assessment";
 
 export function AssessmentFlow() {
@@ -15,6 +16,7 @@ export function AssessmentFlow() {
     voiceTranscript: null,
     voiceAudioUrl: null,
   });
+  const audioBlobRef = useRef<Blob | null>(null);
 
   const goToStep = useCallback((step: AssessmentStep) => {
     setCurrentStep(step);
@@ -39,8 +41,15 @@ export function AssessmentFlow() {
 
   const handleCurrentStateSelect = (id: string) => {
     updateData("currentStateId", id);
-    // Next phase will add voice recording step
     goToStep("voice-recording");
+  };
+
+  const handleVoiceSubmit = (audioBlob: Blob) => {
+    audioBlobRef.current = audioBlob;
+    const audioUrl = URL.createObjectURL(audioBlob);
+    updateData("voiceAudioUrl", audioUrl);
+    // Phase 4 will handle processing
+    goToStep("processing");
   };
 
   return (
@@ -79,9 +88,16 @@ export function AssessmentFlow() {
         )}
 
         {currentStep === "voice-recording" && (
+          <VoiceRecordingStep
+            onSubmit={handleVoiceSubmit}
+            onBack={() => goToStep("current-state")}
+          />
+        )}
+
+        {currentStep === "processing" && (
           <div className="text-center p-8">
-            <h2 className="text-2xl font-bold mb-4">Voice Recording</h2>
-            <p className="text-muted-foreground">Coming in Phase 3...</p>
+            <h2 className="text-2xl font-bold mb-4">Processing...</h2>
+            <p className="text-muted-foreground">AI Assessment coming in Phase 4</p>
             <pre className="mt-8 p-4 bg-muted rounded-lg text-left text-sm max-w-md mx-auto overflow-auto">
               {JSON.stringify(data, null, 2)}
             </pre>

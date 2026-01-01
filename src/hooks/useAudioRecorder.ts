@@ -73,6 +73,8 @@ export function useAudioRecorder({
       setState("requesting");
       setErrorMessage(null);
 
+      console.log("[AudioRecorder] Requesting microphone access...");
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -81,18 +83,32 @@ export function useAudioRecorder({
         },
       });
 
+      console.log("[AudioRecorder] Microphone access granted");
+
       streamRef.current = stream;
 
-      // Set up audio context and analyser for waveform
+      // Set up audio context and analyser for waveform visualization
       const audioContext = new AudioContext();
+      
+      // Resume audio context if it's suspended (required by some browsers)
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+        console.log("[AudioRecorder] AudioContext resumed");
+      }
+
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
+      
+      // Configure analyser for better visualization
       analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.7;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+      
       source.connect(analyser);
       
       audioContextRef.current = audioContext;
-      setAnalyserNode(analyser);
-
+      
       // Set up media recorder
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: MediaRecorder.isTypeSupported("audio/webm")
@@ -113,17 +129,24 @@ export function useAudioRecorder({
         setAudioBlob(blob);
         setAudioUrl(URL.createObjectURL(blob));
         setState("stopped");
+        console.log("[AudioRecorder] Recording stopped, blob created");
       };
 
       mediaRecorderRef.current = mediaRecorder;
       mediaRecorder.start(100); // Collect data every 100ms
 
+      // IMPORTANT: Set analyserNode BEFORE changing state to "recording"
+      // This ensures the waveform component receives both values together
+      setAnalyserNode(analyser);
+      
       startTimeRef.current = Date.now();
       setElapsedTime(0);
       setState("recording");
       timerRef.current = requestAnimationFrame(updateTimer);
+
+      console.log("[AudioRecorder] Recording started");
     } catch (error) {
-      console.error("Error accessing microphone:", error);
+      console.error("[AudioRecorder] Error accessing microphone:", error);
       setState("error");
       
       if (error instanceof DOMException) {
@@ -141,6 +164,8 @@ export function useAudioRecorder({
   }, [updateTimer]);
 
   const stopRecording = useCallback(() => {
+    console.log("[AudioRecorder] Stopping recording...");
+    
     if (timerRef.current) {
       cancelAnimationFrame(timerRef.current);
       timerRef.current = null;
@@ -171,6 +196,7 @@ export function useAudioRecorder({
     setElapsedTime(0);
     setErrorMessage(null);
     setState("idle");
+    console.log("[AudioRecorder] Recording reset");
   }, [audioUrl]);
 
   return {

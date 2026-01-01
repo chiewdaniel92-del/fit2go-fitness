@@ -4,8 +4,9 @@ import { WelcomeStep } from "./WelcomeStep";
 import { AgeStep } from "./AgeStep";
 import { PrimaryGoalStep } from "./PrimaryGoalStep";
 import { CurrentStateStep } from "./CurrentStateStep";
-import { VoiceRecordingStep } from "./VoiceRecordingStep";
+import { GenericVoiceStep } from "./GenericVoiceStep";
 import type { AssessmentStep, AssessmentData } from "@/types/assessment";
+import { VOICE_STEPS, STEP_ORDER } from "@/types/assessment";
 
 export function AssessmentFlow() {
   const [currentStep, setCurrentStep] = useState<AssessmentStep>("welcome");
@@ -13,10 +14,18 @@ export function AssessmentFlow() {
     age: null,
     primaryGoalId: null,
     currentStateId: null,
-    voiceTranscript: null,
-    voiceAudioUrl: null,
+    bodyContextTranscript: null,
+    bodyContextAudioUrl: null,
+    primaryBottleneckTranscript: null,
+    primaryBottleneckAudioUrl: null,
+    successCriteriaTranscript: null,
+    successCriteriaAudioUrl: null,
+    systemHistoryTranscript: null,
+    systemHistoryAudioUrl: null,
   });
-  const audioBlobRef = useRef<Blob | null>(null);
+  
+  // Store audio blobs for upload later
+  const audioBlobsRef = useRef<Record<string, Blob>>({});
 
   const goToStep = useCallback((step: AssessmentStep) => {
     setCurrentStep(step);
@@ -28,6 +37,18 @@ export function AssessmentFlow() {
   ) => {
     setData((prev) => ({ ...prev, [key]: value }));
   }, []);
+
+  // Get next step in the flow
+  const getNextStep = (current: AssessmentStep): AssessmentStep => {
+    const currentIndex = STEP_ORDER.indexOf(current);
+    return STEP_ORDER[currentIndex + 1] || 'processing';
+  };
+
+  // Get previous step in the flow
+  const getPreviousStep = (current: AssessmentStep): AssessmentStep => {
+    const currentIndex = STEP_ORDER.indexOf(current);
+    return STEP_ORDER[currentIndex - 1] || 'welcome';
+  };
 
   const handleAgeSubmit = (age: number) => {
     updateData("age", age);
@@ -41,16 +62,27 @@ export function AssessmentFlow() {
 
   const handleCurrentStateSelect = (id: string) => {
     updateData("currentStateId", id);
-    goToStep("voice-recording");
+    goToStep("voice-body-context");
   };
 
-  const handleVoiceSubmit = (audioBlob: Blob) => {
-    audioBlobRef.current = audioBlob;
+  // Generic handler for voice steps
+  const handleVoiceSubmit = (stepId: AssessmentStep, audioBlob: Blob) => {
+    const config = VOICE_STEPS.find(s => s.id === stepId);
+    if (!config) return;
+
+    // Store blob for later upload
+    audioBlobsRef.current[stepId] = audioBlob;
+    
+    // Create temporary URL for playback
     const audioUrl = URL.createObjectURL(audioBlob);
-    updateData("voiceAudioUrl", audioUrl);
-    // Phase 4 will handle processing
-    goToStep("processing");
+    updateData(config.audioUrlKey as keyof AssessmentData, audioUrl as AssessmentData[keyof AssessmentData]);
+    
+    // Move to next step
+    goToStep(getNextStep(stepId));
   };
+
+  // Find config for current voice step
+  const currentVoiceConfig = VOICE_STEPS.find(s => s.id === currentStep);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -87,16 +119,19 @@ export function AssessmentFlow() {
           />
         )}
 
-        {currentStep === "voice-recording" && (
-          <VoiceRecordingStep
-            onSubmit={handleVoiceSubmit}
-            onBack={() => goToStep("current-state")}
+        {/* Render voice steps using generic component */}
+        {currentVoiceConfig && (
+          <GenericVoiceStep
+            key={currentVoiceConfig.id}
+            config={currentVoiceConfig}
+            onSubmit={(blob) => handleVoiceSubmit(currentStep, blob)}
+            onBack={() => goToStep(getPreviousStep(currentStep))}
           />
         )}
 
         {currentStep === "processing" && (
           <div className="text-center p-8">
-            <h2 className="text-2xl font-bold mb-4">Processing...</h2>
+            <h2 className="text-2xl font-bold mb-4">Analyzing your responses...</h2>
             <p className="text-muted-foreground">AI Assessment coming in Phase 4</p>
             <pre className="mt-8 p-4 bg-muted rounded-lg text-left text-sm max-w-md mx-auto overflow-auto">
               {JSON.stringify(data, null, 2)}

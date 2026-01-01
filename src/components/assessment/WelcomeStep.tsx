@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
 import { Sparkles, Heart, ArrowRight } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 interface WelcomeStepProps {
   onStart: () => void;
@@ -30,7 +31,10 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
       >
         <Button 
           size="lg" 
-          onClick={onStart}
+          onClick={() => {
+            trackEvent("assessment_started");
+            onStart();
+          }}
           className="group px-8 py-6 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
         >
           Begin Assessment

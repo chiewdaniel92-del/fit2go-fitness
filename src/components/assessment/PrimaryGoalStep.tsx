@@ -2,8 +2,9 @@ import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
 import { OptionCard } from "./OptionCard";
 import { usePrimaryGoalOptions } from "@/hooks/useAssessmentOptions";
-import { ArrowLeft, ArrowRight, Target, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Target } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { trackEvent } from "@/lib/analytics";
 
 interface PrimaryGoalStepProps {
   value: string | null;
@@ -65,7 +66,12 @@ export function PrimaryGoalStep({ value, onSelect, onBack }: PrimaryGoalStepProp
         <Button
           size="lg"
           disabled={!value}
-          onClick={() => value && onSelect(value)}
+          onClick={() => {
+            if (value) {
+              trackEvent("step_completed", { step: "primary_goal" });
+              onSelect(value);
+            }
+          }}
           className="px-8"
         >
           Continue

@@ -9,6 +9,7 @@ import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, ArrowRight, Mic, Square, AlertCircle, Loader2, Keyboard } from "lucide-react";
 import type { VoiceStepConfig } from "@/types/assessment";
+import { trackEvent } from "@/lib/analytics";
 
 interface GenericVoiceStepProps {
   config: VoiceStepConfig;
@@ -39,6 +40,7 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
 
   const handleSubmit = async () => {
     if (inputMode === "text") {
+      trackEvent("step_completed", { step: config.id, input_mode: "text" });
       onSubmit(null, textInput);
       return;
     }
@@ -76,6 +78,7 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
       const transcript = data?.text || '';
       console.log('Transcription received, length:', transcript.length);
       
+      trackEvent("step_completed", { step: config.id, input_mode: "voice" });
       onSubmit(audioBlob, transcript);
     } catch (error) {
       console.error('Transcription failed:', error);

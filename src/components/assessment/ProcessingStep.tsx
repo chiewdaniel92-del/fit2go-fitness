@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StepContainer } from "./StepContainer";
 import { Loader2 } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 interface ProcessingStepProps {
   onComplete: (assessment: string) => void;
@@ -61,6 +62,7 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
           throw new Error(data.error);
         }
 
+        trackEvent("assessment_generated", { word_count: data.assessment?.split(/\s+/).length || 0 });
         onComplete(data.assessment);
       } catch (error) {
         console.error('Error generating assessment:', error);

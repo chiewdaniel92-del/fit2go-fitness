@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StepContainer } from "./StepContainer";
 import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 interface AgeStepProps {
   value: number | null;
@@ -33,6 +34,7 @@ export function AgeStep({ value, onSubmit, onBack }: AgeStepProps) {
     }
 
     setError(null);
+    trackEvent("step_completed", { step: "age", age: ageNum });
     onSubmit(ageNum);
   };
 

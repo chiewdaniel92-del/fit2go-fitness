@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
-import { CheckCircle, ArrowRight, RefreshCw } from "lucide-react";
+import { CheckCircle, Calendar, ArrowRight, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { trackEvent } from "@/lib/analytics";
 
 interface ResultsStepProps {
   assessment: string;
@@ -61,23 +62,35 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <Button
-          variant="outline"
           size="lg"
-          onClick={onRetry}
-          className="gap-2"
+          onClick={() => {
+            trackEvent("booking_clicked", { source: "results_page" });
+            window.open("https://kynare.com/timetable", "_blank");
+          }}
+          className="gap-2 bg-primary hover:bg-primary/90"
         >
-          <RefreshCw className="w-4 h-4" />
-          Start Over
+          <Calendar className="w-4 h-4" />
+          Book Your First Visit
         </Button>
         <Button
+          variant="outline"
           size="lg"
           onClick={onEmailCapture}
           className="gap-2"
         >
-          Save & Continue
+          Save My Assessment
           <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onRetry}
+        className="mt-4 gap-2 text-muted-foreground hover:text-foreground"
+      >
+        <RefreshCw className="w-3 h-3" />
+        Start Over
+      </Button>
     </StepContainer>
   );
 }

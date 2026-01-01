@@ -1,12 +1,21 @@
+import { useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle, ArrowLeft, Loader2, AlertCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
+import { trackEvent } from "@/lib/analytics";
 
 export default function AssessmentView() {
   const { accessToken } = useParams<{ accessToken: string }>();
+
+  // Track page view
+  useEffect(() => {
+    if (accessToken) {
+      trackEvent("results_viewed", { source: "direct_link" });
+    }
+  }, [accessToken]);
 
   const { data: assessment, isLoading, error } = useQuery({
     queryKey: ["assessment", accessToken],
@@ -139,8 +148,19 @@ export default function AssessmentView() {
         </div>
 
         {/* Footer Actions */}
-        <div className="text-center">
-          <Button asChild size="lg">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Button
+            size="lg"
+            onClick={() => {
+              trackEvent("booking_clicked", { source: "assessment_view" });
+              window.open("https://kynare.com/timetable", "_blank");
+            }}
+            className="gap-2"
+          >
+            <Calendar className="w-4 h-4" />
+            Book Your First Visit
+          </Button>
+          <Button asChild variant="outline" size="lg">
             <Link to="/">Start a New Assessment</Link>
           </Button>
         </div>

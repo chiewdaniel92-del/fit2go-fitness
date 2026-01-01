@@ -4,6 +4,7 @@ import { OptionCard } from "./OptionCard";
 import { useCurrentStateOptions } from "@/hooks/useAssessmentOptions";
 import { ArrowLeft, ArrowRight, Activity } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { trackEvent } from "@/lib/analytics";
 
 interface CurrentStateStepProps {
   value: string | null;
@@ -65,7 +66,12 @@ export function CurrentStateStep({ value, onSelect, onBack }: CurrentStateStepPr
         <Button
           size="lg"
           disabled={!value}
-          onClick={() => value && onSelect(value)}
+          onClick={() => {
+            if (value) {
+              trackEvent("step_completed", { step: "current_state" });
+              onSelect(value);
+            }
+          }}
           className="px-8"
         >
           Continue

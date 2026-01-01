@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Loader2, Save, ArrowLeft } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 interface EmailCaptureStepProps {
   onSave: (email: string | null, honeypotValue: string) => Promise<void>;
@@ -17,10 +18,12 @@ export function EmailCaptureStep({ onSave, isLoading, onBack }: EmailCaptureStep
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    trackEvent("email_captured");
     await onSave(email.trim() || null, honeypot);
   };
 
   const handleSkip = async () => {
+    trackEvent("email_skipped");
     await onSave(null, honeypot);
   };
 

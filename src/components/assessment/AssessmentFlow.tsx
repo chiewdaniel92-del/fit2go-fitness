@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { AssessmentStep, AssessmentData } from "@/types/assessment";
 import { VOICE_STEPS, STEP_ORDER } from "@/types/assessment";
+import { trackEvent } from "@/lib/analytics";
 
 export function AssessmentFlow() {
   const [currentStep, setCurrentStep] = useState<AssessmentStep>("welcome");
@@ -183,6 +184,36 @@ export function AssessmentFlow() {
       }
 
       setAccessToken(insertedData.access_token);
+      
+      // Track the save event
+      trackEvent("assessment_saved", { has_email: !!email });
+
+      // Send email if provided and honeypot not triggered
+      if (email && !honeypotTriggered) {
+        try {
+          // Get first ~200 words of assessment as summary
+          const summaryWords = assessment.split(/\s+/).slice(0, 50).join(" ");
+          const assessmentSummary = summaryWords + (assessment.split(/\s+/).length > 50 ? "..." : "");
+
+          const { error: emailError } = await supabase.functions.invoke("send-assessment-email", {
+            body: {
+              email,
+              assessmentSummary,
+              accessToken: insertedData.access_token,
+            },
+          });
+
+          if (emailError) {
+            console.error("Failed to send email:", emailError);
+            // Don't show error to user - email is best effort
+          } else {
+            toast.success("Results sent to your email!");
+          }
+        } catch (emailErr) {
+          console.error("Email send error:", emailErr);
+        }
+      }
+
       goToStep("success");
       toast.success("Assessment saved successfully!");
     } catch (error) {

@@ -53,8 +53,6 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
     setTextInput("");
   };
 
-  const showNoInputWarning =
-    state === "recording" && elapsedTime > 1.5 && inputLevel < 0.03;
 
   const canSubmit = inputMode === "text" 
     ? textInput.trim().length > 10 
@@ -181,31 +179,6 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
 
                 <AudioWaveform analyserNode={analyserNode} isRecording={true} />
 
-                {/* Input level meter */}
-                <div className="w-full max-w-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Mic input</span>
-                    <span className="text-sm font-medium text-foreground">
-                      {Math.round(inputLevel * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-100"
-                      style={{ width: `${Math.round(inputLevel * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {showNoInputWarning && (
-                  <div className="w-full max-w-md p-3 rounded-xl border border-border bg-card text-left">
-                    <p className="text-sm font-medium text-foreground">We can&apos;t hear your microphone yet.</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      If you&apos;re speaking and the bar stays near 0%, your device may be using a different mic,
-                      or the browser isn&apos;t sending the mic audio to the recorder.
-                    </p>
-                  </div>
-                )}
 
                 <button
                   onClick={stopRecording}

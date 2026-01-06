@@ -63,8 +63,8 @@ export function PrimaryGoalStep({ value, onChange, onContinue, onBack }: Primary
         </div>
       </StepContainer>
 
-      {/* Fixed bottom navigation on mobile, relative on desktop */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border md:relative md:border-0 md:p-0 md:bg-transparent z-50">
+      {/* Fixed bottom navigation on all screen sizes */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border z-50 md:bg-background/95 md:backdrop-blur-sm">
         <div className="flex gap-3 justify-center max-w-lg mx-auto">
           <Button
             variant="outline"

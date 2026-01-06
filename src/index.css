@@ -138,6 +138,14 @@
   .hover-lift:hover {
     @apply -translate-y-1 shadow-lg;
   }
+
+  /* Clamp dynamic headings so text changes never shift layout */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
 }
 
 @keyframes fade-in {

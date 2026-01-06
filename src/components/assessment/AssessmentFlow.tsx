@@ -286,7 +286,7 @@ export function AssessmentFlow() {
   const currentVoiceConfig = VOICE_STEPS.find(s => s.id === currentStep);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-[100svh] bg-background flex flex-col">
       <header ref={headerRef} className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border/50 py-4 px-6">
         <ProgressIndicator currentStep={currentStep} />
       </header>

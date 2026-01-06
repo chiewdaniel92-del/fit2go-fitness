@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
-import { Sparkles, Heart, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
+import kynareLogo from "@/assets/kynare-logo-orange.png";
 
 interface WelcomeStepProps {
   onStart: () => void;
@@ -11,14 +12,31 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
   return (
     <StepContainer className="flex flex-col items-center justify-center min-h-[70vh] text-center">
       <div className="mb-8 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-6">
-          <Heart className="w-10 h-10 text-primary" />
+        {/* Kynare Logo */}
+        <div className="mb-8">
+          <img 
+            src={kynareLogo} 
+            alt="KYNARE" 
+            className="w-20 h-20 mx-auto"
+          />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
-          Your Wellness Journey
-          <br />
-          <span className="text-primary">Starts Here</span>
-        </h1>
+
+        {/* Hero Tagline - matching kynare.com style */}
+        <div className="font-mono text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-6">
+          <div>
+            <span className="text-foreground">motion </span>
+            <span className="text-primary">engineered</span>
+          </div>
+          <div>
+            <span className="text-primary">clinically </span>
+            <span className="text-foreground">guided</span>
+          </div>
+          <div>
+            <span className="text-foreground">for every body</span>
+            <span className="text-primary">.</span>
+          </div>
+        </div>
+
         <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
           Take a personalized assessment to discover insights tailored to your 
           unique health and fitness goals.
@@ -40,8 +58,7 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
           Begin Assessment
           <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </Button>
-        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4" />
+        <p className="text-sm text-muted-foreground font-mono">
           Takes about 5 minutes
         </p>
       </div>

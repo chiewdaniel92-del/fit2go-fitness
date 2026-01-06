@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { StepContainer } from "./StepContainer";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Copy, ExternalLink, RotateCcw, Check } from "lucide-react";
+import { Copy, ExternalLink, RotateCcw, Check } from "lucide-react";
 import { toast } from "sonner";
+import kynareLogo from "@/assets/kynare-logo-orange.png";
 
 interface SuccessStepProps {
   accessToken: string;
@@ -32,9 +33,11 @@ export function SuccessStep({ accessToken, onStartNew }: SuccessStepProps) {
   return (
     <StepContainer>
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 mb-4">
-          <CheckCircle className="w-6 h-6 text-green-500" />
-        </div>
+        <img 
+          src={kynareLogo} 
+          alt="KYNARE" 
+          className="w-12 h-12 mx-auto mb-4"
+        />
         <h2 className="text-2xl font-bold text-foreground mb-2">Assessment Saved!</h2>
         <p className="text-muted-foreground">
           Your personalized assessment has been saved. Use the link below to access it anytime.

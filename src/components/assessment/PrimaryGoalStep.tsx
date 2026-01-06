@@ -39,7 +39,7 @@ export function PrimaryGoalStep({ value, onChange, onContinue, onBack }: Primary
           </p>
         </div>
 
-        <div className="w-full max-w-lg space-y-3 mb-8">
+        <div className="w-full max-w-lg space-y-3 mb-8 pb-20">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-24 w-full rounded-xl" />

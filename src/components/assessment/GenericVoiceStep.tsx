@@ -294,19 +294,22 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
       </div>
 
       {/* Navigation */}
-      <div className="flex gap-3 justify-center mt-4 md:mt-8">
-        <Button variant="outline" size="lg" onClick={onBack} className="px-6" disabled={isTranscribing}>
-          <ArrowLeft className="mr-2 w-4 h-4" />
-          Back
-        </Button>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t border-border z-50 md:bg-background/95 md:backdrop-blur-sm">
+        <div className="flex gap-3 justify-center max-w-lg mx-auto">
+          <Button variant="outline" size="lg" onClick={onBack} className="px-6" disabled={isTranscribing}>
+            <ArrowLeft className="mr-2 w-4 h-4" />
+            Back
+          </Button>
 
-        {canSubmit && (
-          <Button size="lg" onClick={handleSubmit} className="px-8" disabled={isTranscribing}>
+          <Button size="lg" onClick={handleSubmit} className="px-8" disabled={!canSubmit || isTranscribing}>
             Continue
             <ArrowRight className="ml-2 w-4 h-4" />
           </Button>
-        )}
+        </div>
       </div>
+      
+      {/* Spacer to prevent content from being hidden behind fixed nav */}
+      <div className="h-24" />
     </StepContainer>
   );
 }

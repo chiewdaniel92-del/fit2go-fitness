@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
-import { CheckCircle, Calendar, ArrowRight, RefreshCw } from "lucide-react";
+import { Calendar, ArrowRight, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { trackEvent } from "@/lib/analytics";
+import kynareLogo from "@/assets/kynare-logo-orange.png";
 
 interface ResultsStepProps {
   assessment: string;
@@ -13,16 +14,18 @@ interface ResultsStepProps {
 export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStepProps) {
   return (
     <StepContainer className="flex flex-col">
-      {/* Header */}
+      {/* Header with Logo */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-          <CheckCircle className="w-8 h-8 text-primary" />
-        </div>
+        <img 
+          src={kynareLogo} 
+          alt="KYNARE" 
+          className="w-12 h-12 mx-auto mb-4"
+        />
         <h1 className="text-3xl font-bold text-foreground mb-2">
           Your Personalized Assessment
         </h1>
-        <p className="text-muted-foreground">
-          Based on everything you shared with us
+        <p className="text-muted-foreground font-mono text-sm">
+          clinically guided | motion engineered
         </p>
       </div>
 
@@ -67,10 +70,10 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
             trackEvent("booking_clicked", { source: "results_page" });
             window.open("https://kynare.com/timetable", "_blank");
           }}
-          className="gap-2 bg-primary hover:bg-primary/90"
+          className="gap-2"
         >
           <Calendar className="w-4 h-4" />
-          Book Your First Visit
+          Book a Session
         </Button>
         <Button
           variant="outline"

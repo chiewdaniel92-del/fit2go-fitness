@@ -6,6 +6,7 @@ import { trackEvent } from "@/lib/analytics";
 interface ProcessingStepProps {
   onComplete: (assessment: string) => void;
   onError: (error: string) => void;
+  headerOffsetPx?: number;
   assessmentData: {
     age: number;
     primaryGoal: string;
@@ -25,7 +26,7 @@ const LOADING_MESSAGES = [
   "Preparing your assessment...",
 ];
 
-export function ProcessingStep({ onComplete, onError, assessmentData }: ProcessingStepProps) {
+export function ProcessingStep({ onComplete, onError, assessmentData, headerOffsetPx = 0 }: ProcessingStepProps) {
   const [messageIndex, setMessageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
@@ -110,13 +111,16 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
   }, [assessmentData, onComplete, onError]);
 
   return (
-    <StepContainer className="flex flex-col items-center justify-center py-12">
-      <div className="text-center space-y-8">
+    <StepContainer className="flex flex-col items-center justify-center">
+      <div 
+        className="text-center space-y-8"
+        style={{ transform: `translateY(-${headerOffsetPx}px)` }}
+      >
         {/* Circular progress indicator */}
         <CircularProgress progress={progress} size={160} strokeWidth={10} />
 
-        {/* Loading message */}
-        <div className="space-y-2">
+        {/* Loading message - fixed height to prevent jumping */}
+        <div className="space-y-2 min-h-[72px]">
           <h2 className="text-2xl font-bold text-foreground">
             {LOADING_MESSAGES[messageIndex]}
           </h2>

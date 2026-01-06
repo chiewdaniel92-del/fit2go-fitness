@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { ProgressIndicator } from "./ProgressIndicator";
 import { WelcomeStep } from "./WelcomeStep";
 import { AgeStep } from "./AgeStep";
@@ -22,6 +22,21 @@ export function AssessmentFlow() {
   const [isSaving, setIsSaving] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const startTimeRef = useRef<Date | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  // Measure header height for centering ProcessingStep
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+
+    const updateHeight = () => setHeaderHeight(header.offsetHeight);
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   
   const [data, setData] = useState<AssessmentData>({
     age: null,
@@ -272,7 +287,7 @@ export function AssessmentFlow() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border/50 py-4 px-6">
+      <header ref={headerRef} className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border/50 py-4 px-6">
         <ProgressIndicator currentStep={currentStep} />
       </header>
 
@@ -322,6 +337,7 @@ export function AssessmentFlow() {
             assessmentData={getAssessmentPayload()}
             onComplete={handleAssessmentComplete}
             onError={handleAssessmentError}
+            headerOffsetPx={headerHeight / 2}
           />
         )}
 

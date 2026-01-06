@@ -55,8 +55,15 @@ export function getStepIndex(step: AssessmentStep): number {
 
 export function getProgressPercent(step: AssessmentStep): number {
   const index = getStepIndex(step);
-  // Welcome is 0%, email-capture is 100%
-  return Math.round((index / (STEP_ORDER.length - 1)) * 100);
+  
+  // Results, email-capture, and success are all 100% - the assessment is complete
+  const resultsIndex = getStepIndex('results');
+  if (index >= resultsIndex) {
+    return 100;
+  }
+  
+  // For steps before results, calculate percentage relative to reaching results
+  return Math.round((index / resultsIndex) * 100);
 }
 
 // Voice step configuration

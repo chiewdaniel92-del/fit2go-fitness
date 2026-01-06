@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { StepContainer } from "./StepContainer";
-import { Loader2 } from "lucide-react";
+import { CircularProgress } from "./CircularProgress";
 import { trackEvent } from "@/lib/analytics";
 
 interface ProcessingStepProps {
@@ -27,6 +27,9 @@ const LOADING_MESSAGES = [
 
 export function ProcessingStep({ onComplete, onError, assessmentData }: ProcessingStepProps) {
   const [messageIndex, setMessageIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     // Cycle through loading messages
@@ -36,6 +39,32 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
 
     return () => clearInterval(interval);
   }, []);
+
+  // Simulated progress animation
+  useEffect(() => {
+    if (isComplete) return;
+
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - startTimeRef.current) / 1000;
+      
+      let newProgress: number;
+      if (elapsed <= 5) {
+        // Phase 1: 0-5s → 0% to 50% (fast)
+        newProgress = (elapsed / 5) * 50;
+      } else if (elapsed <= 15) {
+        // Phase 2: 5-15s → 50% to 85% (medium)
+        newProgress = 50 + ((elapsed - 5) / 10) * 35;
+      } else {
+        // Phase 3: 15s+ → 85% to 95% (slow)
+        const slowProgress = Math.min((elapsed - 15) / 20, 1);
+        newProgress = 85 + slowProgress * 10;
+      }
+      
+      setProgress(Math.min(newProgress, 95));
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isComplete]);
 
   useEffect(() => {
     const generateAssessment = async () => {
@@ -62,8 +91,15 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
           throw new Error(data.error);
         }
 
-        trackEvent("assessment_generated", { word_count: data.assessment?.split(/\s+/).length || 0 });
-        onComplete(data.assessment);
+        // Animate to 100% before completing
+        setIsComplete(true);
+        setProgress(100);
+        
+        // Small delay to show 100% before transitioning
+        setTimeout(() => {
+          trackEvent("assessment_generated", { word_count: data.assessment?.split(/\s+/).length || 0 });
+          onComplete(data.assessment);
+        }, 500);
       } catch (error) {
         console.error('Error generating assessment:', error);
         onError(error instanceof Error ? error.message : 'Something went wrong');
@@ -76,11 +112,8 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
   return (
     <StepContainer className="flex flex-col items-center justify-center min-h-[60vh]">
       <div className="text-center space-y-8">
-        {/* Animated loader */}
-        <div className="relative">
-          <div className="w-24 h-24 rounded-full border-4 border-primary/20 mx-auto" />
-          <Loader2 className="w-24 h-24 text-primary animate-spin absolute top-0 left-1/2 -translate-x-1/2" />
-        </div>
+        {/* Circular progress indicator */}
+        <CircularProgress progress={progress} size={160} strokeWidth={10} />
 
         {/* Loading message */}
         <div className="space-y-2">
@@ -90,18 +123,6 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
           <p className="text-muted-foreground">
             This usually takes 10-20 seconds
           </p>
-        </div>
-
-        {/* Progress dots */}
-        <div className="flex justify-center gap-2">
-          {LOADING_MESSAGES.map((_, i) => (
-            <div
-              key={i}
-              className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                i === messageIndex ? 'bg-primary' : 'bg-primary/20'
-              }`}
-            />
-          ))}
         </div>
       </div>
     </StepContainer>

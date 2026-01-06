@@ -77,14 +77,26 @@ export function AssessmentFlow() {
     goToStep("primary-goal");
   };
 
-  const handlePrimaryGoalSelect = (id: string) => {
+  // Handlers for primary goal step
+  const handlePrimaryGoalChange = (id: string) => {
     updateData("primaryGoalId", id);
-    goToStep("current-state");
   };
 
-  const handleCurrentStateSelect = (id: string) => {
+  const handlePrimaryGoalContinue = () => {
+    if (data.primaryGoalId) {
+      goToStep("current-state");
+    }
+  };
+
+  // Handlers for current state step
+  const handleCurrentStateChange = (id: string) => {
     updateData("currentStateId", id);
-    goToStep("voice-body-context");
+  };
+
+  const handleCurrentStateContinue = () => {
+    if (data.currentStateId) {
+      goToStep("voice-body-context");
+    }
   };
 
   // Generic handler for voice/text steps
@@ -280,7 +292,8 @@ export function AssessmentFlow() {
         {currentStep === "primary-goal" && (
           <PrimaryGoalStep
             value={data.primaryGoalId}
-            onSelect={handlePrimaryGoalSelect}
+            onChange={handlePrimaryGoalChange}
+            onContinue={handlePrimaryGoalContinue}
             onBack={() => goToStep("age")}
           />
         )}
@@ -288,7 +301,8 @@ export function AssessmentFlow() {
         {currentStep === "current-state" && (
           <CurrentStateStep
             value={data.currentStateId}
-            onSelect={handleCurrentStateSelect}
+            onChange={handleCurrentStateChange}
+            onContinue={handleCurrentStateContinue}
             onBack={() => goToStep("primary-goal")}
           />
         )}

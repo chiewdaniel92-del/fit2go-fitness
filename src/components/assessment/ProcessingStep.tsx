@@ -110,7 +110,7 @@ export function ProcessingStep({ onComplete, onError, assessmentData }: Processi
   }, [assessmentData, onComplete, onError]);
 
   return (
-    <StepContainer className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)]">
+    <StepContainer className="flex flex-col items-center justify-center py-12">
       <div className="text-center space-y-8">
         {/* Circular progress indicator */}
         <CircularProgress progress={progress} size={160} strokeWidth={10} />

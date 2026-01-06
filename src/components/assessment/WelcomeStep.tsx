@@ -21,21 +21,12 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
           />
         </div>
 
-        {/* Hero Tagline - matching kynare.com style */}
-        <div className="font-mono text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-6">
-          <div>
-            <span className="text-foreground">motion </span>
-            <span className="text-primary">engineered</span>
-          </div>
-          <div>
-            <span className="text-primary">clinically </span>
-            <span className="text-foreground">guided</span>
-          </div>
-          <div>
-            <span className="text-foreground">for every body</span>
-            <span className="text-primary">.</span>
-          </div>
-        </div>
+        {/* Assessment-focused headline */}
+        <h1 className="font-mono text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-6">
+          <span className="text-foreground">Your Free</span>
+          <br />
+          <span className="text-primary">Fitness Assessment</span>
+        </h1>
 
         <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
           Take a personalized assessment to discover insights tailored to your 

@@ -5,15 +5,16 @@ interface CircularTimerProps {
   maxDuration: number;
   isRecording: boolean;
   className?: string;
+  compact?: boolean;
 }
 
-export function CircularTimer({ elapsed, maxDuration, isRecording, className }: CircularTimerProps) {
+export function CircularTimer({ elapsed, maxDuration, isRecording, className, compact = false }: CircularTimerProps) {
   const remaining = Math.max(0, maxDuration - elapsed);
   const progress = elapsed / maxDuration;
   
-  // Circle properties
-  const size = 160;
-  const strokeWidth = 8;
+  // Circle properties - smaller on mobile when compact
+  const size = compact ? 120 : 160;
+  const strokeWidth = compact ? 6 : 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progress);
@@ -57,12 +58,13 @@ export function CircularTimer({ elapsed, maxDuration, isRecording, className }: 
       
       <div className="absolute flex flex-col items-center">
         <span className={cn(
-          "text-3xl font-bold tabular-nums",
+          "font-bold tabular-nums",
+          compact ? "text-2xl" : "text-3xl",
           remaining < 10 ? "text-destructive" : "text-foreground"
         )}>
           {formatTime(remaining)}
         </span>
-        <span className="text-sm text-muted-foreground">
+        <span className={cn("text-muted-foreground", compact ? "text-xs" : "text-sm")}>
           {isRecording ? "remaining" : "max"}
         </span>
       </div>

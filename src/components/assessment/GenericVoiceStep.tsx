@@ -106,28 +106,28 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
 
   return (
     <StepContainer className="flex flex-col items-center">
-      <div className="w-full max-w-lg text-center mb-6">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-6">
-          <Mic className="w-8 h-8 text-primary" />
+      <div className="w-full max-w-lg text-center mb-3 md:mb-6">
+        <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary/10 mb-3 md:mb-6">
+          <Mic className="w-6 h-6 md:w-8 md:h-8 text-primary" />
         </div>
 
-        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 leading-tight">
+        <h2 className="text-xl md:text-3xl font-bold text-foreground mb-2 md:mb-4 leading-tight">
           {config.title}
         </h2>
         {config.subtitle && (
-          <p className="text-lg text-muted-foreground leading-relaxed">
+          <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
             {config.subtitle}
           </p>
         )}
         {config.hint && (
-          <p className="text-sm text-muted-foreground mt-2 italic">
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2 italic">
             {config.hint}
           </p>
         )}
       </div>
 
       {/* Mode Toggle */}
-      <div className="flex items-center justify-center gap-2 mb-6">
+      <div className="flex items-center justify-center gap-2 mb-3 md:mb-6">
         <Button
           variant={inputMode === "voice" ? "default" : "outline"}
           size="sm"
@@ -150,7 +150,7 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
         </Button>
       </div>
 
-      <div className="w-full max-w-lg flex flex-col items-center gap-6">
+      <div className="w-full max-w-lg flex flex-col items-center gap-3 md:gap-6">
         {/* TEXT INPUT MODE */}
         {inputMode === "text" && (
           <div className="w-full space-y-4">
@@ -223,22 +223,23 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
             {/* Idle State - Ready to record */}
             {state === "idle" && !isTranscribing && (
               <>
-                <p className="text-sm text-muted-foreground">
+                <p className="hidden md:block text-sm text-muted-foreground">
                   Voice recording up to 60 seconds
                 </p>
                 
-                <CircularTimer elapsed={0} maxDuration={MAX_DURATION} isRecording={false} />
+                <CircularTimer elapsed={0} maxDuration={MAX_DURATION} isRecording={false} compact className="md:hidden" />
+                <CircularTimer elapsed={0} maxDuration={MAX_DURATION} isRecording={false} className="hidden md:flex" />
 
                 <AudioWaveform analyserNode={null} isRecording={false} className="opacity-50" />
 
                 <button
                   onClick={startRecording}
-                  className="group relative w-24 h-24 rounded-full bg-primary shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
+                  className="group relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-primary shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
                 >
-                  <Mic className="w-10 h-10 text-primary-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  <Mic className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                 </button>
 
-                <p className="text-sm text-muted-foreground">Tap to start recording</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Tap to start recording</p>
               </>
             )}
 
@@ -253,19 +254,19 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
             {/* Recording State */}
             {state === "recording" && (
               <>
-                <CircularTimer elapsed={elapsedTime} maxDuration={MAX_DURATION} isRecording={true} />
+                <CircularTimer elapsed={elapsedTime} maxDuration={MAX_DURATION} isRecording={true} compact className="md:hidden" />
+                <CircularTimer elapsed={elapsedTime} maxDuration={MAX_DURATION} isRecording={true} className="hidden md:flex" />
 
                 <AudioWaveform analyserNode={analyserNode} isRecording={true} />
 
-
                 <button
                   onClick={stopRecording}
-                  className="group relative w-24 h-24 rounded-full bg-destructive shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-destructive/30"
+                  className="group relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-destructive shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-destructive/30"
                 >
-                  <Square className="w-8 h-8 text-destructive-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                  <Square className="w-7 h-7 md:w-8 md:h-8 text-destructive-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                 </button>
 
-                <p className="text-sm text-muted-foreground">Tap to stop recording</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Tap to stop recording</p>
               </>
             )}
 
@@ -293,7 +294,7 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
       </div>
 
       {/* Navigation */}
-      <div className="flex gap-3 justify-center mt-8">
+      <div className="flex gap-3 justify-center mt-4 md:mt-8">
         <Button variant="outline" size="lg" onClick={onBack} className="px-6" disabled={isTranscribing}>
           <ArrowLeft className="mr-2 w-4 h-4" />
           Back

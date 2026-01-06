@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { StepContainer } from "./StepContainer";
 import { CircularProgress } from "./CircularProgress";
 import { trackEvent } from "@/lib/analytics";
 
@@ -111,24 +110,31 @@ export function ProcessingStep({ onComplete, onError, assessmentData, headerOffs
   }, [assessmentData, onComplete, onError]);
 
   return (
-    <StepContainer className="flex flex-col items-center justify-center">
-      <div 
-        className="text-center space-y-8"
-        style={{ transform: `translateY(-${headerOffsetPx}px)` }}
+    <div className="fixed inset-0 z-0 animate-fade-in" role="status" aria-live="polite">
+      {/* Anchor the CIRCLE to the true visual center of the screen */}
+      <div
+        className="absolute left-1/2 top-1/2"
+        style={{
+          transform: `translate(-50%, -50%) translateY(-${headerOffsetPx}px)`,
+        }}
       >
-        {/* Circular progress indicator */}
         <CircularProgress progress={progress} size={160} strokeWidth={10} />
+      </div>
 
-        {/* Loading message - fixed height to prevent jumping */}
-        <div className="space-y-2 min-h-[72px]">
-          <h2 className="text-2xl font-bold text-foreground">
+      {/* Keep message layout fixed so text changes never shift the circle */}
+      <div
+        className="absolute left-1/2 top-1/2 w-[min(36rem,calc(100vw-2rem))] px-4 text-center"
+        style={{
+          transform: `translateX(-50%) translateY(${80 + 32 - headerOffsetPx}px)`,
+        }}
+      >
+        <div className="h-[96px] md:h-[88px] flex flex-col items-center justify-center gap-2">
+          <h2 className="text-2xl font-bold text-foreground leading-tight line-clamp-2">
             {LOADING_MESSAGES[messageIndex]}
           </h2>
-          <p className="text-muted-foreground">
-            This usually takes 10-20 seconds
-          </p>
+          <p className="text-muted-foreground">This usually takes 10-20 seconds</p>
         </div>
       </div>
-    </StepContainer>
+    </div>
   );
 }

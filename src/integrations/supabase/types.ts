@@ -112,6 +112,7 @@ export type Database = {
           age: number
           ai_assessment: string | null
           ai_recommendations: Json | null
+          bss_score: number | null
           completed_at: string | null
           completion_time_seconds: number | null
           created_at: string
@@ -120,8 +121,13 @@ export type Database = {
           honeypot_triggered: boolean | null
           id: string
           ip_address: unknown
+          kb_version_id: string | null
+          lrb_score: number | null
+          oas_score: number | null
+          pcc_score: number | null
           primary_goal_id: string
           session_id: string | null
+          sis_score: number | null
           status: string
           updated_at: string
           voice_audio_url: string | null
@@ -132,6 +138,7 @@ export type Database = {
           age: number
           ai_assessment?: string | null
           ai_recommendations?: Json | null
+          bss_score?: number | null
           completed_at?: string | null
           completion_time_seconds?: number | null
           created_at?: string
@@ -140,8 +147,13 @@ export type Database = {
           honeypot_triggered?: boolean | null
           id?: string
           ip_address?: unknown
+          kb_version_id?: string | null
+          lrb_score?: number | null
+          oas_score?: number | null
+          pcc_score?: number | null
           primary_goal_id: string
           session_id?: string | null
+          sis_score?: number | null
           status?: string
           updated_at?: string
           voice_audio_url?: string | null
@@ -152,6 +164,7 @@ export type Database = {
           age?: number
           ai_assessment?: string | null
           ai_recommendations?: Json | null
+          bss_score?: number | null
           completed_at?: string | null
           completion_time_seconds?: number | null
           created_at?: string
@@ -160,8 +173,13 @@ export type Database = {
           honeypot_triggered?: boolean | null
           id?: string
           ip_address?: unknown
+          kb_version_id?: string | null
+          lrb_score?: number | null
+          oas_score?: number | null
+          pcc_score?: number | null
           primary_goal_id?: string
           session_id?: string | null
+          sis_score?: number | null
           status?: string
           updated_at?: string
           voice_audio_url?: string | null
@@ -180,6 +198,133 @@ export type Database = {
             columns: ["primary_goal_id"]
             isOneToOne: false
             referencedRelation: "assessment_options_primary_goal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessments_kb_version_id_fkey"
+            columns: ["kb_version_id"]
+            isOneToOne: false
+            referencedRelation: "kb_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessment_kb_logs: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          kb_chunk_id: string | null
+          kb_version_id: string | null
+          similarity: number | null
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          kb_chunk_id?: string | null
+          kb_version_id?: string | null
+          similarity?: number | null
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          kb_chunk_id?: string | null
+          kb_version_id?: string | null
+          similarity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_kb_logs_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_kb_logs_kb_chunk_id_fkey"
+            columns: ["kb_chunk_id"]
+            isOneToOne: false
+            referencedRelation: "kynare_kb_chunks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_kb_logs_kb_version_id_fkey"
+            columns: ["kb_version_id"]
+            isOneToOne: false
+            referencedRelation: "kb_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kb_versions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          storage_path: string
+          version_label: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          storage_path: string
+          version_label: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          storage_path?: string
+          version_label?: string
+        }
+        Relationships: []
+      }
+      kynare_kb_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          page: number | null
+          section: string | null
+          token_count: number | null
+          version_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          page?: number | null
+          section?: string | null
+          token_count?: number | null
+          version_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          page?: number | null
+          section?: string | null
+          token_count?: number | null
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kynare_kb_chunks_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "kb_versions"
             referencedColumns: ["id"]
           },
         ]

@@ -20,6 +20,31 @@ export interface AssessmentData {
   systemHistoryAudioUrl: string | null;
 }
 
+export interface AssessmentMetrics {
+  bss: number | null;
+  lrb: number | null;
+  pcc: number | null;
+  sis: number | null;
+  oas: number | null;
+}
+
+export interface AssessmentRetrievalLog {
+  chunkId: string;
+  similarity: number | null;
+  section?: string | null;
+  page?: number | null;
+}
+
+export interface AssessmentGenerationResult {
+  assessment: string;
+  metrics: AssessmentMetrics;
+  cluster: string | null;
+  riskFlags: string[];
+  opportunityFlags: string[];
+  kbVersionId: string | null;
+  retrieval: AssessmentRetrievalLog[];
+}
+
 export type AssessmentStep = 
   | 'welcome' 
   | 'age' 

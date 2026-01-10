@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { CircularProgress } from "./CircularProgress";
 import { trackEvent } from "@/lib/analytics";
+import type { AssessmentGenerationResult } from "@/types/assessment";
 
 interface ProcessingStepProps {
-  onComplete: (assessment: string) => void;
+  onComplete: (result: AssessmentGenerationResult) => void;
   onError: (error: string) => void;
   headerOffsetPx?: number;
   assessmentData: {
@@ -91,14 +92,40 @@ export function ProcessingStep({ onComplete, onError, assessmentData, headerOffs
           throw new Error(data.error);
         }
 
+        if (!data.assessment) {
+          throw new Error("Assessment content missing from response");
+        }
+
         // Animate to 100% before completing
         setIsComplete(true);
         setProgress(100);
         
         // Small delay to show 100% before transitioning
         setTimeout(() => {
-          trackEvent("assessment_generated", { word_count: data.assessment?.split(/\s+/).length || 0 });
-          onComplete(data.assessment);
+          trackEvent("assessment_generated", {
+            word_count: data.assessment?.split(/\s+/).length || 0,
+            kb_version_id: data.kb_version_id || null,
+          });
+          onComplete({
+            assessment: data.assessment,
+            metrics: data.metrics || {
+              bss: null,
+              lrb: null,
+              pcc: null,
+              sis: null,
+              oas: null,
+            },
+            cluster: data.cluster ?? null,
+            riskFlags: data.risk_flags ?? [],
+            opportunityFlags: data.opportunity_flags ?? [],
+            kbVersionId: data.kb_version_id ?? null,
+            retrieval: (data.retrieval || []).map((entry: { chunk_id: string; similarity: number | null; section?: string | null; page?: number | null; }) => ({
+              chunkId: entry.chunk_id,
+              similarity: entry.similarity ?? null,
+              section: entry.section ?? null,
+              page: entry.page ?? null,
+            })),
+          });
         }, 500);
       } catch (error) {
         console.error('Error generating assessment:', error);

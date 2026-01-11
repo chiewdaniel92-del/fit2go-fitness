@@ -208,43 +208,44 @@ export function AssessmentFlow() {
       const combinedTranscript = getCombinedTranscript();
       const metrics = result.metrics;
 
-      const { data: insertedData, error } = await supabase
-        .from("assessments")
-        .insert({
-          age: data.age,
-          primary_goal_id: data.primaryGoalId,
-          current_state_id: data.currentStateId,
-          voice_transcript: combinedTranscript || null,
-          ai_assessment: result.assessment,
-          ai_recommendations: {
-            cluster: result.cluster,
-            risk_flags: result.riskFlags,
-            opportunity_flags: result.opportunityFlags,
-          },
-          kb_version_id: result.kbVersionId || null,
-          bss_score: metrics?.bss ?? null,
-          lrb_score: metrics?.lrb ?? null,
-          pcc_score: metrics?.pcc ?? null,
-          sis_score: metrics?.sis ?? null,
-          oas_score: metrics?.oas ?? null,
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          completion_time_seconds: completionTime,
-        })
-        .select("id, access_token")
-        .single();
+      const { data: insertedData, error } = await supabase.rpc("create_assessment", {
+        p_age: data.age,
+        p_primary_goal_id: data.primaryGoalId,
+        p_current_state_id: data.currentStateId,
+        p_voice_transcript: combinedTranscript || null,
+        p_ai_assessment: result.assessment,
+        p_ai_recommendations: {
+          cluster: result.cluster,
+          risk_flags: result.riskFlags,
+          opportunity_flags: result.opportunityFlags,
+        },
+        p_kb_version_id: result.kbVersionId || null,
+        p_bss_score: metrics?.bss ?? null,
+        p_lrb_score: metrics?.lrb ?? null,
+        p_pcc_score: metrics?.pcc ?? null,
+        p_sis_score: metrics?.sis ?? null,
+        p_oas_score: metrics?.oas ?? null,
+        p_status: "completed",
+        p_completed_at: new Date().toISOString(),
+        p_completion_time_seconds: completionTime,
+      });
 
       if (error) {
         console.error("Error saving assessment:", error);
         throw new Error("Failed to save assessment");
       }
 
-      setAssessmentId(insertedData.id);
-      setAccessToken(insertedData.access_token);
+      const created = Array.isArray(insertedData) ? insertedData[0] : null;
+      if (!created) {
+        throw new Error("Failed to save assessment");
+      }
+
+      setAssessmentId(created.id);
+      setAccessToken(created.access_token);
 
       if (result.retrieval?.length) {
         const logRows = result.retrieval.map((entry) => ({
-          assessment_id: insertedData.id,
+          assessment_id: created.id,
           kb_version_id: result.kbVersionId,
           kb_chunk_id: entry.chunkId,
           similarity: entry.similarity,
@@ -259,7 +260,7 @@ export function AssessmentFlow() {
         }
       }
 
-      return insertedData;
+      return created;
     })()
       .finally(() => {
         autoSaveRef.current = null;
@@ -290,19 +291,25 @@ export function AssessmentFlow() {
         record = await persistAssessment(result);
       }
 
-      const { error: updateError } = await supabase
-        .from("assessments")
-        .update({
-          email: email,
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          honeypot_triggered: honeypotTriggered,
-          completion_time_seconds: completionTime,
-        })
-        .eq("id", record.id);
+      const { data: updateData, error: updateError } = await supabase.rpc(
+        "update_assessment_by_token",
+        {
+          p_access_token: record.access_token,
+          p_email: email,
+          p_status: "completed",
+          p_completed_at: new Date().toISOString(),
+          p_honeypot_triggered: honeypotTriggered,
+          p_completion_time_seconds: completionTime,
+        }
+      );
 
       if (updateError) {
         console.error("Error updating assessment:", updateError);
+        throw new Error("Failed to save assessment");
+      }
+
+      const updated = Array.isArray(updateData) ? updateData[0] : null;
+      if (!updated) {
         throw new Error("Failed to save assessment");
       }
 

@@ -22,20 +22,23 @@ export default function AssessmentView() {
     queryFn: async () => {
       if (!accessToken) throw new Error("No access token provided");
 
-      const { data, error } = await supabase
-        .from("assessments")
-        .select(`
-          *,
-          primary_goal:assessment_options_primary_goal(label),
-          current_state:assessment_options_current_state(label)
-        `)
-        .eq("access_token", accessToken)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_assessment_by_token", {
+        p_access_token: accessToken,
+      });
 
       if (error) throw error;
-      if (!data) throw new Error("Assessment not found");
+      const row = Array.isArray(data) ? data[0] : null;
+      if (!row) throw new Error("Assessment not found");
 
-      return data;
+      return row as {
+        id: string;
+        age: number;
+        primary_goal_label: string;
+        current_state_label: string;
+        ai_assessment: string | null;
+        created_at: string;
+        completed_at: string | null;
+      };
     },
     enabled: !!accessToken,
   });
@@ -107,10 +110,10 @@ export default function AssessmentView() {
             Age: {assessment.age}
           </span>
           <span className="inline-flex items-center px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-sm">
-            Goal: {assessment.primary_goal?.label}
+            Goal: {assessment.primary_goal_label}
           </span>
           <span className="inline-flex items-center px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-sm">
-            State: {assessment.current_state?.label}
+            State: {assessment.current_state_label}
           </span>
         </div>
 

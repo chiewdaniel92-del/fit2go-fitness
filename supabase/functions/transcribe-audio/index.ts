@@ -1,10 +1,28 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  checkRateLimit,
+  enforceCors,
+  getClientIp,
+  verifyTurnstile,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const MAX_AUDIO_BYTES = Number.parseInt(
+  Deno.env.get("MAX_AUDIO_BYTES") ?? "6000000",
+  10,
+);
+const RATE_LIMIT_MAX = Number.parseInt(
+  Deno.env.get("RATE_LIMIT_MAX_TRANSCRIBE") ??
+    Deno.env.get("RATE_LIMIT_MAX") ??
+    "6",
+  10,
+);
+const RATE_LIMIT_WINDOW_MS = Number.parseInt(
+  Deno.env.get("RATE_LIMIT_WINDOW_MS") ?? "60000",
+  10,
+);
+
+const BASE64_RE = /^[A-Za-z0-9+/=]+$/;
 
 // Process base64 in chunks to prevent memory issues with large audio files
 function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
@@ -38,8 +56,23 @@ function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Arra
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  const { allowed, corsHeaders } = enforceCors(req);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -49,11 +82,75 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    const { audio } = await req.json();
+    const contentType = req.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const ip = getClientIp(req);
+    const rateKey = `transcribe-audio:${ip}`;
+    const rateLimit = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    if (!rateLimit.allowed) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Retry-After": Math.ceil(rateLimit.retryAfterMs / 1000).toString(),
+          "X-RateLimit-Limit": RATE_LIMIT_MAX.toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      });
+    }
+
+    const turnstileToken = typeof body.turnstileToken === "string"
+      ? body.turnstileToken
+      : req.headers.get("x-turnstile-token");
+    const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+    if (!turnstileOk) {
+      return new Response(JSON.stringify({ error: "Verification failed" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const rawAudio = typeof body.audio === "string" ? body.audio : "";
+    const audio = rawAudio.replace(/\s/g, "");
     
     if (!audio) {
       console.error('No audio data provided');
-      throw new Error('No audio data provided');
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!BASE64_RE.test(audio)) {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const estimatedBytes = Math.floor((audio.length * 3) / 4);
+    if (estimatedBytes > MAX_AUDIO_BYTES) {
+      return new Response(JSON.stringify({ error: "Audio too large" }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log('Processing audio data, length:', audio.length);
@@ -81,7 +178,7 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Whisper API error:', response.status, errorText);
-      throw new Error(`Whisper API error: ${response.status} - ${errorText}`);
+      throw new Error(`Whisper API error: ${response.status}`);
     }
 
     const result = await response.json();
@@ -93,10 +190,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('Error in transcribe-audio function:', errorMessage);
+    console.error('Error in transcribe-audio function:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: "Transcription failed" }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

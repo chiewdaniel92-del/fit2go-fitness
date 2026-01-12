@@ -1,11 +1,28 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  checkRateLimit,
+  enforceCors,
+  getClientIp,
+  verifyTurnstile,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const MAX_TEXT_LENGTH = 4000;
+const MAX_GOAL_LENGTH = 120;
+const MAX_STATE_LENGTH = 120;
+const MAX_TOTAL_INPUT_LENGTH = 16000;
+
+const RATE_LIMIT_MAX = Number.parseInt(
+  Deno.env.get("RATE_LIMIT_MAX_GENERATE") ??
+    Deno.env.get("RATE_LIMIT_MAX") ??
+    "10",
+  10,
+);
+const RATE_LIMIT_WINDOW_MS = Number.parseInt(
+  Deno.env.get("RATE_LIMIT_WINDOW_MS") ?? "60000",
+  10,
+);
 
 const SYSTEM_PROMPT = `You are the Kynare assessment engine. Use only the provided Kynare knowledge base excerpts and the user's inputs. Do not use outside knowledge. If the KB does not cover a topic, produce a minimal, safe assessment using only the user's input and KB principles without inventing facts.
 
@@ -73,8 +90,23 @@ const clampScore = (value: number) => {
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
+  const { allowed, corsHeaders } = enforceCors(req);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -89,7 +121,107 @@ serve(async (req) => {
       throw new Error("Supabase env vars are not configured");
     }
 
-    const input: AssessmentInput = await req.json();
+    const contentType = req.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const ip = getClientIp(req);
+    const rateKey = `generate-assessment:${ip}`;
+    const rateLimit = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    if (!rateLimit.allowed) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Retry-After": Math.ceil(rateLimit.retryAfterMs / 1000).toString(),
+          "X-RateLimit-Limit": RATE_LIMIT_MAX.toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      });
+    }
+
+    const turnstileToken = typeof body.turnstileToken === "string"
+      ? body.turnstileToken
+      : req.headers.get("x-turnstile-token");
+    const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+    if (!turnstileOk) {
+      return new Response(JSON.stringify({ error: "Verification failed" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const age = Number(body.age);
+    const primaryGoal = typeof body.primaryGoal === "string"
+      ? body.primaryGoal.trim()
+      : "";
+    const currentState = typeof body.currentState === "string"
+      ? body.currentState.trim()
+      : "";
+    const bodyContext = typeof body.bodyContext === "string"
+      ? body.bodyContext.trim()
+      : "";
+    const primaryBottleneck = typeof body.primaryBottleneck === "string"
+      ? body.primaryBottleneck.trim()
+      : "";
+    const successCriteria = typeof body.successCriteria === "string"
+      ? body.successCriteria.trim()
+      : "";
+    const systemHistory = typeof body.systemHistory === "string"
+      ? body.systemHistory.trim()
+      : "";
+
+    const totalLength = primaryGoal.length +
+      currentState.length +
+      bodyContext.length +
+      primaryBottleneck.length +
+      successCriteria.length +
+      systemHistory.length;
+
+    if (
+      !Number.isInteger(age) ||
+      age < 18 ||
+      age > 99 ||
+      !primaryGoal ||
+      primaryGoal.length > MAX_GOAL_LENGTH ||
+      !currentState ||
+      currentState.length > MAX_STATE_LENGTH ||
+      bodyContext.length > MAX_TEXT_LENGTH ||
+      primaryBottleneck.length > MAX_TEXT_LENGTH ||
+      successCriteria.length > MAX_TEXT_LENGTH ||
+      systemHistory.length > MAX_TEXT_LENGTH ||
+      totalLength > MAX_TOTAL_INPUT_LENGTH
+    ) {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const input: AssessmentInput = {
+      age,
+      primaryGoal,
+      currentState,
+      bodyContext,
+      primaryBottleneck,
+      successCriteria,
+      systemHistory,
+    };
     console.log('Generating assessment for:', { 
       age: input.age,
       primaryGoal: input.primaryGoal,
@@ -218,7 +350,7 @@ serve(async (req) => {
       
       if (response.status === 401) {
         return new Response(JSON.stringify({ 
-          error: 'API key is invalid. Please check your OpenAI API key.' 
+          error: 'Service unavailable. Please try again later.' 
         }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -280,7 +412,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error generating assessment:', error);
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Failed to generate assessment' 
+      error: 'Failed to generate assessment' 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,13 +1,28 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import {
+  checkRateLimit,
+  enforceCors,
+  getClientIp,
+  verifyTurnstile,
+} from "../_shared/security.ts";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const RATE_LIMIT_MAX = Number.parseInt(
+  Deno.env.get("RATE_LIMIT_MAX_EMAIL") ??
+    Deno.env.get("RATE_LIMIT_MAX") ??
+    "5",
+  10,
+);
+const RATE_LIMIT_WINDOW_MS = Number.parseInt(
+  Deno.env.get("RATE_LIMIT_WINDOW_MS") ?? "60000",
+  10,
+);
+const MAX_SUMMARY_LENGTH = 3000;
+const MAX_EMAIL_LENGTH = 320;
+const ACCESS_TOKEN_RE = /^[a-f0-9]{64}$/i;
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 interface EmailRequest {
   email: string;
@@ -15,20 +30,104 @@ interface EmailRequest {
   accessToken: string;
 }
 
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const handler = async (req: Request): Promise<Response> => {
   // Handle CORS preflight requests
+  const { allowed, corsHeaders } = enforceCors(req);
+  if (!allowed) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
-    const { email, assessmentSummary, accessToken }: EmailRequest = await req.json();
+    const contentType = req.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid request" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const ip = getClientIp(req);
+    const rateKey = `send-assessment-email:${ip}`;
+    const rateLimit = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    if (!rateLimit.allowed) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Retry-After": Math.ceil(rateLimit.retryAfterMs / 1000).toString(),
+          "X-RateLimit-Limit": RATE_LIMIT_MAX.toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      });
+    }
+
+    const turnstileToken = typeof body.turnstileToken === "string"
+      ? body.turnstileToken
+      : req.headers.get("x-turnstile-token");
+    const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+    if (!turnstileOk) {
+      return new Response(JSON.stringify({ error: "Verification failed" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const accessToken = typeof body.accessToken === "string"
+      ? body.accessToken.trim()
+      : "";
+    const assessmentSummary = typeof body.assessmentSummary === "string"
+      ? body.assessmentSummary.trim()
+      : "";
+
+    const request: EmailRequest = { email, assessmentSummary, accessToken };
 
     // Validate inputs
-    if (!email || !accessToken) {
-      console.error("Missing required fields:", { email: !!email, accessToken: !!accessToken });
+    if (
+      !request.email ||
+      !request.accessToken ||
+      request.email.length > MAX_EMAIL_LENGTH ||
+      !EMAIL_RE.test(request.email) ||
+      !ACCESS_TOKEN_RE.test(request.accessToken) ||
+      !request.assessmentSummary ||
+      request.assessmentSummary.length > MAX_SUMMARY_LENGTH
+    ) {
+      console.error("Invalid email request payload");
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: "Invalid request" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
@@ -40,6 +139,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending email to:", email);
     console.log("Assessment URL:", assessmentUrl);
+
+    const safeSummary = escapeHtml(assessmentSummary);
 
     const emailResponse = await resend.emails.send({
       from: "Kynare <onboarding@resend.dev>",
@@ -72,7 +173,7 @@ const handler = async (req: Request): Promise<Response> => {
           Quick Summary
         </h2>
         <p style="color: #3f3f46; font-size: 14px; line-height: 1.6; margin: 0;">
-          ${assessmentSummary}
+          ${safeSummary}
         </p>
       </div>
 
@@ -117,9 +218,8 @@ const handler = async (req: Request): Promise<Response> => {
     );
   } catch (error: unknown) {
     console.error("Error in send-assessment-email function:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: "Failed to send email" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

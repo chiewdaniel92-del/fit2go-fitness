@@ -44,7 +44,11 @@ The assessment_markdown must use ONLY these exact H2 section headers:
 ## Ecosystem Components
 ## Outcome-Based Sequencing Rules
 
-Within "Client Metrics Framework", include each metric name with its score and a brief KB-aligned rationale. Use direct, empathetic "you" language but never reference question numbers. Do not include citations.`;
+Within "Client Metrics Framework", include each metric name with its score and a brief KB-aligned rationale tied to a specific user detail. Use direct, empathetic "you" language but never reference question numbers. Do not include citations.
+
+Make the assessment specific to this user:
+- In every H2 section, include a short "Specific observations:" list with 2-4 bullet points that paraphrase or quote the user's actual input (body part, trigger, goal, prior interventions, or success criteria).
+- In "Outcome-Based Sequencing Rules", end with a concise, non-medical call-to-action that explains why a first visit helps and invites booking (max 2 sentences).`;
 
 const CHAT_MODEL = "gpt-4o-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -86,6 +90,151 @@ const clampScore = (value: number) => {
   if (!Number.isFinite(value)) return null;
   const rounded = Math.round(value);
   return Math.min(5, Math.max(1, rounded));
+};
+
+const STOPWORDS = new Set([
+  "about",
+  "above",
+  "after",
+  "again",
+  "also",
+  "another",
+  "because",
+  "before",
+  "being",
+  "below",
+  "between",
+  "could",
+  "doing",
+  "during",
+  "every",
+  "first",
+  "found",
+  "from",
+  "have",
+  "here",
+  "into",
+  "just",
+  "like",
+  "many",
+  "might",
+  "more",
+  "most",
+  "other",
+  "over",
+  "same",
+  "some",
+  "such",
+  "than",
+  "that",
+  "their",
+  "there",
+  "these",
+  "they",
+  "this",
+  "those",
+  "through",
+  "under",
+  "very",
+  "what",
+  "when",
+  "where",
+  "which",
+  "with",
+  "would",
+  "your",
+]);
+
+const BODY_PARTS = [
+  "knee",
+  "knees",
+  "hip",
+  "hips",
+  "ankle",
+  "ankles",
+  "foot",
+  "feet",
+  "shoulder",
+  "shoulders",
+  "elbow",
+  "elbows",
+  "wrist",
+  "wrists",
+  "hand",
+  "hands",
+  "back",
+  "neck",
+  "spine",
+  "core",
+  "hamstring",
+  "hamstrings",
+  "quad",
+  "quads",
+  "glute",
+  "glutes",
+  "calf",
+  "calves",
+  "lower back",
+  "upper back",
+];
+
+const INTERVENTION_TERMS = [
+  "physio",
+  "physiotherapist",
+  "chiro",
+  "chiropractor",
+  "acupuncture",
+  "acupuncturist",
+  "trainer",
+  "coach",
+  "pt",
+  "doctor",
+  "massage",
+  "rehab",
+  "supplement",
+  "iv",
+];
+
+const extractKeywords = (text: string, limit = 12) => {
+  const cleaned = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) {
+    return [];
+  }
+
+  const tokens = cleaned.split(" ");
+  const keywords: string[] = [];
+  for (const token of tokens) {
+    if (
+      token.length < 4 ||
+      token.length > 18 ||
+      STOPWORDS.has(token) ||
+      keywords.includes(token)
+    ) {
+      continue;
+    }
+    keywords.push(token);
+    if (keywords.length >= limit) {
+      break;
+    }
+  }
+
+  return keywords;
+};
+
+const findMatches = (text: string, terms: string[]) => {
+  const lower = text.toLowerCase();
+  const matches: string[] = [];
+  for (const term of terms) {
+    if (lower.includes(term) && !matches.includes(term)) {
+      matches.push(term);
+    }
+  }
+  return matches;
 };
 
 serve(async (req) => {
@@ -251,6 +400,25 @@ serve(async (req) => {
       throw new Error("No active KB version found");
     }
 
+    const combinedInput = [
+      input.primaryGoal,
+      input.currentState,
+      input.bodyContext,
+      input.primaryBottleneck,
+      input.successCriteria,
+      input.systemHistory,
+    ]
+      .join(" ")
+      .trim();
+
+    const keywords = extractKeywords(combinedInput);
+    const bodyParts = findMatches(combinedInput, BODY_PARTS);
+    const interventions = findMatches(combinedInput, INTERVENTION_TERMS);
+    const hasOutcome = input.successCriteria.trim().length >= 12;
+    const hasClearBottleneck =
+      input.primaryBottleneck.trim().length >= 8 &&
+      !/everything|not sure|not really sure|no idea/i.test(input.primaryBottleneck);
+
     const retrievalQuery = [
       `Age: ${input.age}`,
       `Primary goal: ${input.primaryGoal}`,
@@ -259,6 +427,9 @@ serve(async (req) => {
       `Primary bottleneck: ${input.primaryBottleneck || "Not provided"}`,
       `Success criteria: ${input.successCriteria || "Not provided"}`,
       `System history: ${input.systemHistory || "Not provided"}`,
+      `Keywords: ${keywords.join(", ") || "none"}`,
+      `Body parts: ${bodyParts.join(", ") || "none"}`,
+      `Prior interventions: ${interventions.join(", ") || "none"}`,
       "Kynare assessment metrics, clusters, and sequencing rules",
     ].join("\n");
 
@@ -313,7 +484,7 @@ serve(async (req) => {
       })
       .join("\n\n");
 
-    const userPrompt = `KYNARE_KB_EXCERPTS:\n${kbContext}\n\nUSER_INPUT:\n- Age: ${input.age}\n- Primary goal: ${input.primaryGoal}\n- Current state: ${input.currentState}\n- Body context: ${input.bodyContext || "Not provided"}\n- Primary bottleneck: ${input.primaryBottleneck || "Not provided"}\n- Success criteria: ${input.successCriteria || "Not provided"}\n- System history: ${input.systemHistory || "Not provided"}`;
+    const userPrompt = `KYNARE_KB_EXCERPTS:\n${kbContext}\n\nUSER_INPUT:\n- Age: ${input.age}\n- Primary goal: ${input.primaryGoal}\n- Current state: ${input.currentState}\n- Body context: ${input.bodyContext || "Not provided"}\n- Primary bottleneck: ${input.primaryBottleneck || "Not provided"}\n- Success criteria: ${input.successCriteria || "Not provided"}\n- System history: ${input.systemHistory || "Not provided"}\n- Extracted keywords: ${keywords.join(", ") || "none"}\n- Body parts: ${bodyParts.join(", ") || "none"}\n- Prior interventions: ${interventions.join(", ") || "none"}\n- Signal hints: has_outcome=${hasOutcome}; has_clear_bottleneck=${hasClearBottleneck}; interventions_count=${interventions.length}`;
 
     console.log("Calling OpenAI chat completion...");
 

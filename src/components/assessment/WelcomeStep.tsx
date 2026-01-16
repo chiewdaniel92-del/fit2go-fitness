@@ -28,10 +28,11 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
           <span className="text-primary">Health & Performance Assessment</span>
         </h1>
 
-        <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
-          Take a personalized assessment to discover insights tailored to your 
-          unique health and fitness goals.
-        </p>
+        <div className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed space-y-2">
+          <p>Built on KYNARE's ecosystem-based assessment logic.</p>
+          <p>We uncover your main bottleneck and how key factors interact.</p>
+          <p>So you know exactly where to focus for the greatest impact.</p>
+        </div>
       </div>
 
       <div 

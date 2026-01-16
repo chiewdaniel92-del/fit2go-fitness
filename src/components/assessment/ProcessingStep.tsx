@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { CircularProgress } from "./CircularProgress";
 import { trackEvent } from "@/lib/analytics";
+import { supabase } from "@/integrations/supabase/client";
 import type { AssessmentGenerationResult } from "@/types/assessment";
 
 interface ProcessingStepProps {
@@ -70,29 +71,19 @@ export function ProcessingStep({ onComplete, onError, assessmentData, headerOffs
   useEffect(() => {
     const generateAssessment = async () => {
       try {
-        const response = await fetch(
-          'https://epyjjkwzwjjveqqfttpj.supabase.co/functions/v1/generate-assessment',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(assessmentData),
-          }
-        );
+        const { data, error } = await supabase.functions.invoke('generate-assessment', {
+          body: assessmentData,
+        });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to generate assessment');
+        if (error) {
+          throw new Error(error.message || 'Failed to generate assessment');
         }
 
-        const data = await response.json();
-        
-        if (data.error) {
+        if (data?.error) {
           throw new Error(data.error);
         }
 
-        if (!data.assessment) {
+        if (!data?.assessment) {
           throw new Error("Assessment content missing from response");
         }
 

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
 import kynareLogo from "@/assets/kynare-logo-orange.png";
 
@@ -23,9 +23,9 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
 
         {/* Assessment-focused headline */}
         <h1 className="font-mono text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-6">
-          <span className="text-foreground">Your Free</span>
+          <span className="text-foreground">The Kynare Ecosystem</span>
           <br />
-          <span className="text-primary">Fitness Assessment</span>
+          <span className="text-primary">Health & Performance Assessment</span>
         </h1>
 
         <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
@@ -55,16 +55,17 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
       </div>
 
       <div 
-        className="mt-12 grid grid-cols-2 gap-8 text-center animate-slide-up max-w-md"
+        className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 text-center animate-slide-up max-w-2xl"
         style={{ animationDelay: "0.5s" }}
       >
         {[
-          { label: "Personalized", value: "100%" },
-          { label: "AI-Powered", value: "✓" },
-        ].map((stat) => (
-          <div key={stat.label} className="p-4">
-            <div className="text-2xl font-bold text-primary">{stat.value}</div>
-            <div className="text-sm text-muted-foreground">{stat.label}</div>
+          "Adaptive Insights Engine",
+          "Personalized by your constraints",
+          "Outcome Measured Framework",
+        ].map((feature) => (
+          <div key={feature} className="flex items-center justify-center gap-2 p-3">
+            <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+            <span className="text-sm text-muted-foreground font-mono">{feature}</span>
           </div>
         ))}
       </div>

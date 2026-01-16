@@ -6,6 +6,12 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:4173",
 ];
 
+// Function to check if origin is a valid Lovable preview URL
+const isLovablePreviewOrigin = (origin: string): boolean => {
+  return /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/.test(origin) ||
+         /^https:\/\/[a-z0-9-]+--[a-z0-9-]+\.lovable\.app$/.test(origin);
+};
+
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const getAllowedOrigins = (): string[] => {
@@ -26,7 +32,8 @@ export const buildCorsHeaders = (
   origin: string | null,
   allowedOrigins: string[],
 ): HeadersInit => {
-  const allowOrigin = origin && allowedOrigins.includes(origin)
+  // If origin is a Lovable preview URL, allow it dynamically
+  const allowOrigin = origin && (allowedOrigins.includes(origin) || isLovablePreviewOrigin(origin))
     ? origin
     : allowedOrigins[0] ?? "null";
 
@@ -46,7 +53,12 @@ export const enforceCors = (req: Request): {
   const allowedOrigins = getAllowedOrigins();
   const origin = req.headers.get("origin");
 
-  if (origin && !allowedOrigins.includes(origin)) {
+  // Allow if origin is in the explicit list OR is a valid Lovable preview URL
+  const isAllowed = !origin || 
+    allowedOrigins.includes(origin) || 
+    isLovablePreviewOrigin(origin);
+
+  if (!isAllowed) {
     return { allowed: false, corsHeaders: buildCorsHeaders(null, allowedOrigins) };
   }
 

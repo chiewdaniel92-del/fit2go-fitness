@@ -119,7 +119,7 @@ export default function AssessmentView() {
 
         {/* Assessment Content */}
         <div className="bg-card border border-border rounded-2xl p-6 md:p-8 mb-8">
-          <div className="prose prose-neutral dark:prose-invert max-w-none">
+          <div className="prose prose-invert max-w-none">
             <ReactMarkdown
               components={{
                 h2: ({ children }) => (

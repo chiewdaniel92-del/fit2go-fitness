@@ -31,7 +31,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
 
       {/* Assessment Content */}
       <div className="w-full max-w-3xl mx-auto bg-card border border-border rounded-2xl p-6 md:p-8 mb-8">
-        <div className="prose prose-neutral dark:prose-invert max-w-none">
+        <div className="prose prose-invert max-w-none">
           <ReactMarkdown
             components={{
               h2: ({ children }) => (

@@ -6,59 +6,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 220 5% 14%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 220 5% 14%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 5% 14%;
-
-    /* Kynare Orange - exact brand color #f8401c */
-    --primary: 13 94% 54%;
-    --primary-foreground: 0 0% 100%;
-
-    /* Soft warm secondary */
-    --secondary: 30 30% 96%;
-    --secondary-foreground: 13 80% 40%;
-
-    /* Warm neutral muted */
-    --muted: 30 20% 96%;
-    --muted-foreground: 220 10% 45%;
-
-    /* Accent matches primary */
-    --accent: 13 94% 54%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 13 94% 54%;
-
-    --radius: 0.75rem;
-
-    /* Official Kynare brand tokens */
-    --kynare-orange: 13 94% 54%;
-    --kynare-charcoal: 220 5% 14%;
-    --kynare-cream: 43 24% 72%;
-    --kynare-grey-light: 0 0% 88%;
-    --kynare-grey-medium: 0 0% 75%;
-
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 13 94% 54%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 30 30% 96%;
-    --sidebar-accent-foreground: 13 80% 40%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 13 94% 54%;
-  }
-
-  .dark {
-    /* Dark theme matches kynare.com website */
+    /* Kynare Black Theme - Single branded theme */
     --background: 220 5% 14%;
     --foreground: 0 0% 98%;
 
@@ -68,15 +16,19 @@
     --popover: 220 5% 10%;
     --popover-foreground: 0 0% 98%;
 
+    /* Kynare Orange - exact brand color #f8401c */
     --primary: 13 94% 54%;
     --primary-foreground: 0 0% 100%;
 
+    /* Secondary warm tones */
     --secondary: 13 20% 20%;
     --secondary-foreground: 13 80% 70%;
 
+    /* Warm neutral muted */
     --muted: 220 5% 20%;
     --muted-foreground: 220 10% 60%;
 
+    /* Accent matches primary */
     --accent: 13 94% 54%;
     --accent-foreground: 0 0% 100%;
 
@@ -87,6 +39,9 @@
     --input: 220 5% 20%;
     --ring: 13 94% 54%;
 
+    --radius: 0.75rem;
+
+    /* Official Kynare brand tokens */
     --kynare-orange: 13 94% 54%;
     --kynare-charcoal: 220 5% 14%;
     --kynare-cream: 43 20% 30%;

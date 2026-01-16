@@ -58,6 +58,55 @@ export type Database = {
           },
         ]
       }
+      assessment_kb_logs: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          kb_chunk_id: string | null
+          kb_version_id: string | null
+          similarity: number | null
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          kb_chunk_id?: string | null
+          kb_version_id?: string | null
+          similarity?: number | null
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          kb_chunk_id?: string | null
+          kb_version_id?: string | null
+          similarity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_kb_logs_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_kb_logs_kb_chunk_id_fkey"
+            columns: ["kb_chunk_id"]
+            isOneToOne: false
+            referencedRelation: "kynare_kb_chunks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_kb_logs_kb_version_id_fkey"
+            columns: ["kb_version_id"]
+            isOneToOne: false
+            referencedRelation: "kb_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_options_current_state: {
         Row: {
           created_at: string
@@ -194,66 +243,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "assessments_primary_goal_id_fkey"
-            columns: ["primary_goal_id"]
-            isOneToOne: false
-            referencedRelation: "assessment_options_primary_goal"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "assessments_kb_version_id_fkey"
             columns: ["kb_version_id"]
             isOneToOne: false
             referencedRelation: "kb_versions"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      assessment_kb_logs: {
-        Row: {
-          assessment_id: string
-          created_at: string
-          id: string
-          kb_chunk_id: string | null
-          kb_version_id: string | null
-          similarity: number | null
-        }
-        Insert: {
-          assessment_id: string
-          created_at?: string
-          id?: string
-          kb_chunk_id?: string | null
-          kb_version_id?: string | null
-          similarity?: number | null
-        }
-        Update: {
-          assessment_id?: string
-          created_at?: string
-          id?: string
-          kb_chunk_id?: string | null
-          kb_version_id?: string | null
-          similarity?: number | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "assessment_kb_logs_assessment_id_fkey"
-            columns: ["assessment_id"]
+            foreignKeyName: "assessments_primary_goal_id_fkey"
+            columns: ["primary_goal_id"]
             isOneToOne: false
-            referencedRelation: "assessments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assessment_kb_logs_kb_chunk_id_fkey"
-            columns: ["kb_chunk_id"]
-            isOneToOne: false
-            referencedRelation: "kynare_kb_chunks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "assessment_kb_logs_kb_version_id_fkey"
-            columns: ["kb_version_id"]
-            isOneToOne: false
-            referencedRelation: "kb_versions"
+            referencedRelation: "assessment_options_primary_goal"
             referencedColumns: ["id"]
           },
         ]
@@ -334,7 +334,68 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_assessment: {
+        Args: {
+          p_age: number
+          p_ai_assessment: string
+          p_ai_recommendations: Json
+          p_bss_score: number
+          p_completed_at: string
+          p_completion_time_seconds: number
+          p_current_state_id: string
+          p_kb_version_id: string
+          p_lrb_score: number
+          p_oas_score: number
+          p_pcc_score: number
+          p_primary_goal_id: string
+          p_sis_score: number
+          p_status: string
+          p_voice_transcript: string
+        }
+        Returns: {
+          access_token: string
+          id: string
+        }[]
+      }
+      get_assessment_by_token: {
+        Args: { p_access_token: string }
+        Returns: {
+          age: number
+          ai_assessment: string
+          completed_at: string
+          created_at: string
+          current_state_label: string
+          id: string
+          primary_goal_label: string
+        }[]
+      }
+      match_kynare_knowledge: {
+        Args: {
+          p_match_count?: number
+          p_query_embedding: string
+          p_version_id: string
+        }
+        Returns: {
+          content: string
+          id: string
+          page: number
+          section: string
+          similarity: number
+        }[]
+      }
+      update_assessment_by_token: {
+        Args: {
+          p_access_token: string
+          p_completed_at: string
+          p_completion_time_seconds: number
+          p_email: string
+          p_honeypot_triggered: boolean
+          p_status: string
+        }
+        Returns: {
+          id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

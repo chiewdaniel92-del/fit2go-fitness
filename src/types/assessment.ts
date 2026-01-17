@@ -104,8 +104,8 @@ export interface VoiceStepConfig {
 export const VOICE_STEPS: VoiceStepConfig[] = [
   {
     id: 'voice-body-context',
-    title: "Tell us about your body or training right now",
-    subtitle: "What's working, what's frustrating, and what feels unclear or inconsistent?",
+    title: "Tell us what's working, what keeps breaking down, and where you feel unsure how to progress",
+    subtitle: "Share where your body or training feels reliable, where it doesn't and what you can't quite explain yet",
     transcriptKey: 'bodyContextTranscript',
     audioUrlKey: 'bodyContextAudioUrl',
   },

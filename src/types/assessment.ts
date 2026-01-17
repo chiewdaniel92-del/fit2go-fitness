@@ -96,7 +96,7 @@ export interface VoiceStepConfig {
   id: AssessmentStep;
   title: string;
   subtitle: string;
-  hint?: string;
+  hint?: string | string[]; // String for simple hint, array for scrollable pills
   transcriptKey: keyof AssessmentData;
   audioUrlKey: keyof AssessmentData;
 }
@@ -113,7 +113,14 @@ export const VOICE_STEPS: VoiceStepConfig[] = [
     id: 'voice-bottleneck',
     title: "If you could fix ONE thing about your body or performance right now, what would it be?",
     subtitle: "",
-    hint: "Examples: pain, energy, strength, mobility, recovery, consistency, confidence",
+    hint: [
+      "Ongoing or recurring pain that changes how you move or train",
+      "Low or inconsistent energy, even with rest",
+      "Feeling weak or unstable despite training",
+      "Limited mobility that affects performance or confidence",
+      "Poor recovery between sessions or days",
+      "Struggling with consistency due to flare-ups or fatigue",
+    ],
     transcriptKey: 'primaryBottleneckTranscript',
     audioUrlKey: 'primaryBottleneckAudioUrl',
   },

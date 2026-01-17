@@ -101,6 +101,15 @@
     -webkit-line-clamp: 2;
     overflow: hidden;
   }
+
+  /* Hide scrollbar for scrollable pill containers */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes fade-in {

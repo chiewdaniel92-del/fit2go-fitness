@@ -55,7 +55,7 @@ export function AgeStep({ value, onSubmit, onBack }: AgeStepProps) {
           How old are you?
         </h2>
         <p className="text-muted-foreground mb-8">
-          This helps us personalize your assessment
+          Your age helps us understand your recovery patterns, training tolerance, and how your body adapts
         </p>
 
         <div className="mb-6">

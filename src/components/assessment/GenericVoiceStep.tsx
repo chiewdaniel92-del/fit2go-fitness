@@ -7,7 +7,7 @@ import { AudioWaveform } from "./AudioWaveform";
 import { AudioPlayback } from "./AudioPlayback";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, ArrowRight, Mic, Square, AlertCircle, Loader2, Keyboard } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mic, Square, AlertCircle, Loader2, Keyboard, ChevronLeft, ChevronRight } from "lucide-react";
 import type { VoiceStepConfig } from "@/types/assessment";
 import { trackEvent } from "@/lib/analytics";
 
@@ -119,10 +119,44 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
             {config.subtitle}
           </p>
         )}
-        {config.hint && (
+        {/* Hint: String or Scrollable Pills */}
+        {config.hint && typeof config.hint === 'string' && (
           <p className="text-xs md:text-sm text-muted-foreground mt-1 md:mt-2 italic">
             {config.hint}
           </p>
+        )}
+        {config.hint && Array.isArray(config.hint) && (
+          <div className="mt-3 md:mt-4 w-full">
+            <p className="text-xs text-muted-foreground mb-2 italic">Examples:</p>
+            <div className="relative">
+              {/* Left fade indicator */}
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none flex items-center">
+                <ChevronLeft className="w-4 h-4 text-muted-foreground/60 -ml-1" />
+              </div>
+              
+              {/* Scrollable container */}
+              <div className="overflow-x-auto scrollbar-hide scroll-smooth px-6">
+                <div className="flex gap-2 py-1">
+                  {config.hint.map((item, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center whitespace-nowrap px-3 py-1.5 bg-muted/60 text-muted-foreground text-xs rounded-full border border-border/50 shrink-0"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Right fade indicator */}
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none flex items-center justify-end">
+                <ChevronRight className="w-4 h-4 text-muted-foreground/60 -mr-1" />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 mt-1.5 flex items-center justify-center gap-1">
+              <span>←</span> Swipe for more <span>→</span>
+            </p>
+          </div>
         )}
       </div>
 

@@ -197,6 +197,29 @@ function preprocessProgressionSection(content: string): ProgressionSectionData {
   return { introText, scenarios };
 }
 
+interface RoadmapSectionData {
+  tableContent: string;
+  outcomeText: string | null;
+}
+
+// Pre-process roadmap section to extract Outcome text from table
+function preprocessRoadmapSection(content: string): RoadmapSectionData {
+  let outcomeText: string | null = null;
+  let tableContent = content;
+  
+  // Find "Outcome:" and extract everything after it (may be in table row or standalone)
+  const outcomeMatch = content.match(/\|?\s*Outcome:\s*(.+?)(?:\|?\s*$)/is);
+  if (outcomeMatch) {
+    outcomeText = outcomeMatch[1].trim().replace(/\|/g, '').trim();
+    // Remove the Outcome row/line from table content
+    tableContent = content.replace(/\|?\s*Outcome:.*$/is, '').trim();
+    // Clean up any trailing empty table rows
+    tableContent = tableContent.replace(/\|\s*\|\s*\|\s*$/gm, '').trim();
+  }
+  
+  return { tableContent, outcomeText };
+}
+
 function parseAssessmentIntoSections(assessment: string): Section[] {
   // Split by the horizontal divider pattern
   const parts = assessment.split(/_{10,}/);
@@ -259,6 +282,8 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                            !section.title.toLowerCase().includes('connect') &&
                            !section.title.toLowerCase().includes('progression');
   const isConnectSection = section.title.toLowerCase().includes('how these metrics connect');
+  const isRoadmapSection = section.title.toLowerCase().includes('implementation roadmap') || 
+                           section.title.toLowerCase().includes('roadmap');
   
   // Pre-process metrics section to extract special elements
   const metricsData = useMemo(() => {
@@ -283,6 +308,14 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     }
     return null;
   }, [section.content, isProgressionSection]);
+  
+  // Pre-process roadmap section to extract Outcome text
+  const roadmapData = useMemo(() => {
+    if (isRoadmapSection) {
+      return preprocessRoadmapSection(section.content);
+    }
+    return null;
+  }, [section.content, isRoadmapSection]);
   
   const markdownComponents = {
     h1: ({ children }: { children?: React.ReactNode }) => (
@@ -355,7 +388,7 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     ),
     table: ({ children }: { children?: React.ReactNode }) => (
       <div className="w-full overflow-x-auto rounded-xl border border-primary/30 my-4">
-        <table className="w-full border-collapse text-left text-sm min-w-[400px]">
+        <table className={`w-full border-collapse text-left text-sm min-w-[400px] ${isRoadmapSection ? 'roadmap-table' : ''}`}>
           {children}
         </table>
       </div>
@@ -373,13 +406,18 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
         {children}
       </tr>
     ),
-    th: ({ children }: { children?: React.ReactNode }) => (
-      <th className="px-4 py-3 font-bold text-primary uppercase text-xs tracking-wider">
-        {children}
-      </th>
-    ),
-    td: ({ children }: { children?: React.ReactNode }) => (
-      <td className="px-4 py-3 align-top text-foreground/90 border-l-2 border-l-transparent first:border-l-primary/30">
+    th: ({ children, node }: { children?: React.ReactNode; node?: any }) => {
+      // For roadmap tables, make the Week column narrower
+      const text = String(children).toLowerCase();
+      const isWeekColumn = isRoadmapSection && text.includes('week');
+      return (
+        <th className={`px-4 py-3 font-bold text-primary uppercase text-xs tracking-wider ${isWeekColumn ? 'w-20' : ''}`}>
+          {children}
+        </th>
+      );
+    },
+    td: ({ children, node }: { children?: React.ReactNode; node?: any }) => (
+      <td className="px-4 py-3 align-top text-foreground/90 border-l-2 border-l-transparent first:border-l-primary/30 first:w-20">
         {children}
       </td>
     ),
@@ -540,6 +578,29 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                 )}
               </div>
             ))}
+          </>
+        ) : isRoadmapSection && roadmapData ? (
+          <>
+            {/* Table Content (without Outcome row) */}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents}
+            >
+              {roadmapData.tableContent}
+            </ReactMarkdown>
+            
+            {/* Outcome Subheading - Separate from table */}
+            {roadmapData.outcomeText && (
+              <div className="mt-6">
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  Outcome
+                </h3>
+                <p className="text-foreground/90 leading-loose">
+                  {roadmapData.outcomeText}
+                </p>
+              </div>
+            )}
           </>
         ) : (
           <ReactMarkdown

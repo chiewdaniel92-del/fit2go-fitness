@@ -187,11 +187,11 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
                   isDragging ? 'cursor-grabbing' : 'cursor-grab'
                 }`}
               >
-                <div className="flex gap-1.5 py-0.5">
+                <div className="flex gap-2 py-0.5">
                   {config.hint.map((item, index) => (
                     <div
                       key={index}
-                      className="shrink-0 snap-start px-2.5 py-1 bg-muted/60 text-muted-foreground text-[11px] rounded-full border border-border/50 whitespace-nowrap pointer-events-none"
+                      className="shrink-0 snap-start w-44 px-3 py-2 bg-muted/60 text-muted-foreground text-[11px] leading-tight rounded-lg border border-border/50 pointer-events-none"
                     >
                       {item}
                     </div>

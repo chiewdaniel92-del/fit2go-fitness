@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
 import { Calendar, ArrowRight, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { trackEvent } from "@/lib/analytics";
 import kynareLogo from "@/assets/kynare-logo-orange.png";
 
@@ -33,6 +34,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
       <div className="w-full max-w-3xl mx-auto bg-card border border-border rounded-2xl p-6 md:p-8 mb-8">
         <div className="prose prose-invert max-w-none">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               h2: ({ children }) => (
                 <h2 className="text-xl font-bold text-foreground mt-6 mb-3 first:mt-0 border-b border-border pb-2">
@@ -54,6 +56,36 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
               ),
               li: ({ children }) => (
                 <li className="leading-relaxed">{children}</li>
+              ),
+              table: ({ children }) => (
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
+                    {children}
+                  </table>
+                </div>
+              ),
+              thead: ({ children }) => (
+                <thead className="border-b border-border">
+                  {children}
+                </thead>
+              ),
+              tbody: ({ children }) => (
+                <tbody>{children}</tbody>
+              ),
+              tr: ({ children }) => (
+                <tr className="border-b border-border/50 last:border-b-0">
+                  {children}
+                </tr>
+              ),
+              th: ({ children }) => (
+                <th className="px-3 py-2 font-semibold text-foreground">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="px-3 py-2 align-top text-foreground/90">
+                  {children}
+                </td>
               ),
             }}
           >

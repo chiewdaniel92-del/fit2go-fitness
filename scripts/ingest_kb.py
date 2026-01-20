@@ -4,9 +4,7 @@ import os
 import re
 import time
 import urllib.request
-from typing import List, Dict, Any, Tuple
-
-from pypdf import PdfReader
+from typing import List, Dict, Any, Tuple, Optional
 
 
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
@@ -15,15 +13,56 @@ DEFAULT_OVERLAP_CHARS = 200
 DEFAULT_BATCH_SIZE = 20
 
 
-def normalize_text(text: str) -> str:
+def load_env_file(path: str) -> None:
+    if not path or not os.path.exists(path):
+        return
+    with open(path, "r", encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and value:
+                if not os.environ.get(key):
+                    os.environ[key] = value
+
+
+def normalize_ascii(text: str) -> str:
+    replacements = [
+        ("\u2018", "'"),
+        ("\u2019", "'"),
+        ("\u201c", '"'),
+        ("\u201d", '"'),
+        ("\u2013", "-"),
+        ("\u2014", "-"),
+        ("\u2026", "..."),
+        ("ƒ?Ts", "'s"),
+        ("ƒ?T", "'"),
+        ("ƒ?o", '"'),
+        ("ƒ??", '"'),
+        ("ƒ-?", "-"),
+        ("ƒ+", "->"),
+        ("\uFFFD", ""),
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return text.encode("ascii", "ignore").decode("ascii")
+
+
+def normalize_text(text: str, ascii_only: bool = False) -> str:
     text = text.replace("\u2022", "-").replace("\u25cf", "-")
     text = re.sub(r"[\t\r\f\v]+", " ", text)
     text = re.sub(r" +", " ", text)
     text = re.sub(r"\n+", "\n", text)
+    if ascii_only:
+        text = normalize_ascii(text)
     return text.strip()
 
 
-def extract_pages(pdf_path: str) -> List[Tuple[int, str]]:
+def extract_pages(pdf_path: str, ascii_only: bool) -> List[Tuple[int, str]]:
+    from pypdf import PdfReader
     reader = PdfReader(pdf_path, strict=False)
     pages = []
     for i, page in enumerate(reader.pages, start=1):
@@ -34,12 +73,24 @@ def extract_pages(pdf_path: str) -> List[Tuple[int, str]]:
                 text = page.extract_text(extraction_mode="layout") or ""
             except Exception:
                 text = ""
-        pages.append((i, normalize_text(text)))
+        pages.append((i, normalize_text(text, ascii_only)))
     return pages
 
 
-def is_heading(line: str) -> bool:
-    return re.match(r"^\d+(\.\d+)*\s+", line) is not None
+def parse_heading(line: str) -> Optional[str]:
+    md_heading = re.match(r"^#+\s+(.*)", line)
+    if md_heading:
+        return md_heading.group(1).strip()
+    numbered = re.match(r"^(\d+(?:\.\d+)*)\s+(.*)", line)
+    if numbered:
+        return f"{numbered.group(1)} {numbered.group(2).strip()}"
+    return None
+
+
+def extract_markdown(md_path: str, ascii_only: bool) -> List[Tuple[int, str]]:
+    with open(md_path, "r", encoding="utf-8", errors="replace") as handle:
+        text = handle.read()
+    return [(1, normalize_text(text, ascii_only))]
 
 
 def chunk_pages(pages: List[Tuple[int, str]], max_chars: int, overlap_chars: int) -> List[Dict[str, Any]]:
@@ -54,8 +105,9 @@ def chunk_pages(pages: List[Tuple[int, str]], max_chars: int, overlap_chars: int
             line = line.strip()
             if not line:
                 continue
-            if is_heading(line):
-                current_section = line
+            heading = parse_heading(line)
+            if heading:
+                current_section = heading
             candidate = buffer + ("\n" if buffer else "") + line
             if len(candidate) > max_chars:
                 chunk_text = buffer.strip()
@@ -153,8 +205,14 @@ def embed_texts(api_key: str, model: str, texts: List[str]) -> List[List[float]]
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest Kynare knowledge base into Supabase.")
-    parser.add_argument("--pdf", required=True, help="Path to the PDF file.")
-    parser.add_argument("--storage-path", required=True, help="Supabase Storage path for the PDF.")
+    parser.add_argument(
+        "--source",
+        "--pdf",
+        dest="source",
+        required=True,
+        help="Path to the PDF or Markdown file.",
+    )
+    parser.add_argument("--storage-path", required=True, help="Supabase Storage path for the source file.")
     parser.add_argument("--version-label", required=True, help="KB version label (e.g., v1-2024-09).")
     parser.add_argument("--notes", default="", help="Optional version notes.")
     parser.add_argument("--set-active", action="store_true", help="Mark this version as active.")
@@ -162,7 +220,19 @@ def main() -> None:
     parser.add_argument("--overlap-chars", type=int, default=DEFAULT_OVERLAP_CHARS)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--embedding-model", default=DEFAULT_EMBEDDING_MODEL)
+    parser.add_argument(
+        "--normalize-ascii",
+        action="store_true",
+        help="Strip non-ASCII characters after applying mojibake fixes.",
+    )
+    parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Optional .env file to load credentials from (default: .env).",
+    )
     args = parser.parse_args()
+
+    load_env_file(args.env_file)
 
     supabase_url = os.environ.get("SUPABASE_URL")
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -173,7 +243,13 @@ def main() -> None:
 
     base_url = supabase_url.rstrip("/")
 
-    pages = extract_pages(args.pdf)
+    source_path = args.source
+    if source_path.lower().endswith(".pdf"):
+        pages = extract_pages(source_path, args.normalize_ascii)
+    elif source_path.lower().endswith((".md", ".markdown")):
+        pages = extract_markdown(source_path, args.normalize_ascii)
+    else:
+        raise SystemExit("Unsupported source format. Use PDF or Markdown.")
     chunks = chunk_pages(pages, args.chunk_chars, args.overlap_chars)
     if not chunks:
         raise SystemExit("No chunks created from the PDF.")

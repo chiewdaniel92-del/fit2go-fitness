@@ -100,11 +100,53 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                 {children}
               </h3>
             ),
-            p: ({ children }) => (
-              <p className="text-foreground/90 leading-relaxed mb-4 last:mb-0">
-                {children}
-              </p>
-            ),
+            p: ({ children }) => {
+              const text = String(children);
+              
+              // Detect "Overall Score:" pattern and render as styled badges
+              if (text.includes('Overall Score:') && text.includes('Target:')) {
+                const match = text.match(/Overall Score:\s*([\d]+\/[\d]+).*Target:\s*([\d-]+\/[\d]+)/);
+                if (match) {
+                  return (
+                    <div className="flex flex-wrap items-center gap-3 my-4">
+                      <span className="bg-primary/20 text-primary border border-primary/40 px-4 py-2 rounded-full font-bold text-base whitespace-nowrap">
+                        Current: {match[1]}
+                      </span>
+                      <span className="text-primary text-xl">→</span>
+                      <span className="bg-primary/20 text-primary border border-primary/40 px-4 py-2 rounded-full font-bold text-base whitespace-nowrap">
+                        Target: {match[2]}
+                      </span>
+                    </div>
+                  );
+                }
+              }
+              
+              // Detect "What this means for you" and render as styled subheading
+              if (text.toLowerCase().startsWith('what this means for you')) {
+                return (
+                  <h3 className="text-lg font-bold text-foreground mt-6 mb-3 flex items-center gap-2">
+                    <span className="w-1 h-5 bg-primary rounded-full" />
+                    What this means for you
+                  </h3>
+                );
+              }
+              
+              // Detect "Example cascade" and render as styled subheading
+              if (text.toLowerCase().startsWith('example cascade')) {
+                return (
+                  <h3 className="text-lg font-bold text-foreground mt-6 mb-3 flex items-center gap-2">
+                    <span className="w-1 h-5 bg-primary rounded-full" />
+                    {children}
+                  </h3>
+                );
+              }
+              
+              return (
+                <p className="text-foreground/90 leading-relaxed mb-4 last:mb-0">
+                  {children}
+                </p>
+              );
+            },
             strong: ({ children }) => (
               <strong className="text-primary font-semibold">{children}</strong>
             ),
@@ -206,7 +248,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
           className="w-12 h-12 mx-auto mb-4"
         />
         <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
-          Your Personalized Assessment
+          Your Personalized Health & Performance Results
         </h1>
         <div className="flex items-center justify-center gap-2 mt-3">
           <span className="h-px w-12 bg-primary/50" />

@@ -205,7 +205,7 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
 
 function SectionCard({ section, isNextSteps = false }: { section: Section; isNextSteps?: boolean }) {
   const isNextStepsSection = isNextSteps || section.title.toLowerCase().includes('next step');
-  const isMetricsSection = section.title.toLowerCase().includes('metrics');
+  const isMetricsSection = section.title.toLowerCase().includes('metrics') && !section.title.toLowerCase().includes('connect');
   const isConnectSection = section.title.toLowerCase().includes('how these metrics connect');
   
   // Pre-process metrics section to extract special elements

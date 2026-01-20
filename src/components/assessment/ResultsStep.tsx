@@ -19,6 +19,46 @@ interface Section {
   content: string;
 }
 
+interface MetricsData {
+  overallScore: { current: string; target: string } | null;
+  whatThisMeans: { current: string; target: string } | null;
+  cleanedContent: string;
+}
+
+// Pre-process metrics section to extract Overall Score and "What this means for you"
+function preprocessMetricsSection(content: string): MetricsData {
+  let overallScore: { current: string; target: string } | null = null;
+  let whatThisMeans: { current: string; target: string } | null = null;
+  let cleanedContent = content;
+
+  // Extract "Overall Score: X/25 -> Target: Y/25" pattern
+  const scoreMatch = content.match(/Overall Score[:\s]*([\d]+\/[\d]+).*?Target[:\s]*([\d-]+\/[\d]+)/i);
+  if (scoreMatch) {
+    overallScore = { current: scoreMatch[1], target: scoreMatch[2] };
+  }
+
+  // Extract "What this means for you" with Current/Target bullets
+  const currentMatch = content.match(/●\s*Current:\s*([^●|]+?)(?=●|$|\|)/);
+  const targetMatch = content.match(/●\s*Target:\s*([^●|\d][^●|]+?)(?=●|$|\|)/);
+  
+  if (currentMatch && targetMatch) {
+    whatThisMeans = {
+      current: currentMatch[1].trim().replace(/\s+/g, ' '),
+      target: targetMatch[1].trim().replace(/\s+/g, ' ')
+    };
+  }
+
+  // Remove rows containing "Overall Score" and "What this means for you" from table
+  cleanedContent = content
+    .replace(/\|[^|\n]*Overall Score[^|\n]*\|[^|\n]*\|/gi, '')
+    .replace(/\|[^|\n]*What this means for you[^|\n]*\|[^|\n]*\|/gi, '')
+    .replace(/●\s*Current:[^●|]+/gi, '')
+    .replace(/●\s*Target:\s*[^●|\d][^●|]+/gi, '')
+    .replace(/\n{3,}/g, '\n\n');
+
+  return { overallScore, whatThisMeans, cleanedContent };
+}
+
 function parseAssessmentIntoSections(assessment: string): Section[] {
   // Split by the horizontal divider pattern
   const parts = assessment.split(/_{10,}/);
@@ -75,6 +115,143 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
 
 function SectionCard({ section, isNextSteps = false }: { section: Section; isNextSteps?: boolean }) {
   const isNextStepsSection = isNextSteps || section.title.toLowerCase().includes('next step');
+  const isMetricsSection = section.title.toLowerCase().includes('metrics');
+  
+  // Pre-process metrics section to extract special elements
+  const metricsData = useMemo(() => {
+    if (isMetricsSection) {
+      return preprocessMetricsSection(section.content);
+    }
+    return null;
+  }, [section.content, isMetricsSection]);
+  
+  const markdownComponents = {
+    h1: ({ children }: { children?: React.ReactNode }) => (
+      <h1 className="text-2xl font-bold text-foreground mt-4 mb-3 first:mt-0">
+        {children}
+      </h1>
+    ),
+    h2: ({ children }: { children?: React.ReactNode }) => (
+      <h2 className="text-xl font-bold text-foreground mt-6 mb-3 first:mt-0 flex items-center gap-2">
+        <span className="w-1 h-6 bg-primary rounded-full" />
+        {children}
+      </h2>
+    ),
+    h3: ({ children }: { children?: React.ReactNode }) => (
+      <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">
+        {children}
+      </h3>
+    ),
+    p: ({ children }: { children?: React.ReactNode }) => {
+      const text = String(children);
+      
+      // Skip rendering "Overall Score" and "What this means for you" in metrics section
+      // as they are rendered separately
+      if (isMetricsSection) {
+        if (text.includes('Overall Score:') && text.includes('Target:')) {
+          return null;
+        }
+        if (text.toLowerCase().startsWith('what this means for you')) {
+          return null;
+        }
+      }
+      
+      // Detect "Example cascade" and render as styled subheading
+      if (text.toLowerCase().startsWith('example cascade')) {
+        return (
+          <h3 className="text-lg font-bold text-foreground mt-6 mb-3 flex items-center gap-2">
+            <span className="w-1 h-5 bg-primary rounded-full" />
+            {children}
+          </h3>
+        );
+      }
+      
+      return (
+        <p className="text-foreground/90 leading-relaxed mb-4 last:mb-0">
+          {children}
+        </p>
+      );
+    },
+    strong: ({ children }: { children?: React.ReactNode }) => (
+      <strong className="text-primary font-semibold">{children}</strong>
+    ),
+    em: ({ children }: { children?: React.ReactNode }) => (
+      <em className="text-foreground/80 italic">{children}</em>
+    ),
+    ul: ({ children }: { children?: React.ReactNode }) => (
+      <ul className="space-y-2 mb-4 text-foreground/90 list-none pl-0">
+        {children}
+      </ul>
+    ),
+    ol: ({ children }: { children?: React.ReactNode }) => (
+      <ol className="space-y-2 mb-4 text-foreground/90 list-none pl-0 counter-reset-item">
+        {children}
+      </ol>
+    ),
+    li: ({ children }: { children?: React.ReactNode }) => (
+      <li className="leading-relaxed flex items-start gap-3">
+        <span className="text-primary mt-1.5 text-xs">●</span>
+        <span className="flex-1">{children}</span>
+      </li>
+    ),
+    table: ({ children }: { children?: React.ReactNode }) => (
+      <div className="w-full overflow-x-auto rounded-xl border border-primary/30 my-4">
+        <table className="w-full border-collapse text-left text-sm min-w-[400px]">
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children }: { children?: React.ReactNode }) => (
+      <thead className="bg-primary/15 border-b-2 border-primary/30">
+        {children}
+      </thead>
+    ),
+    tbody: ({ children }: { children?: React.ReactNode }) => (
+      <tbody className="divide-y divide-border/50">{children}</tbody>
+    ),
+    tr: ({ children }: { children?: React.ReactNode }) => (
+      <tr className="even:bg-muted/20 hover:bg-muted/30 transition-colors">
+        {children}
+      </tr>
+    ),
+    th: ({ children }: { children?: React.ReactNode }) => (
+      <th className="px-4 py-3 font-bold text-primary uppercase text-xs tracking-wider">
+        {children}
+      </th>
+    ),
+    td: ({ children }: { children?: React.ReactNode }) => (
+      <td className="px-4 py-3 align-top text-foreground/90 border-l-2 border-l-transparent first:border-l-primary/30">
+        {children}
+      </td>
+    ),
+    blockquote: ({ children }: { children?: React.ReactNode }) => (
+      <blockquote className="border-l-4 border-primary pl-4 my-4 italic text-foreground/80 bg-primary/5 py-2 rounded-r-lg">
+        {children}
+      </blockquote>
+    ),
+    code: ({ children }: { children?: React.ReactNode }) => (
+      <code className="bg-muted/50 text-primary px-1.5 py-0.5 rounded text-sm font-mono">
+        {children}
+      </code>
+    ),
+    a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+      <a 
+        href={href} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
+      >
+        {children}
+      </a>
+    ),
+    hr: () => (
+      <div className="flex items-center gap-2 my-6">
+        <div className="flex-1 h-px bg-border" />
+        <div className="w-2 h-2 rounded-full bg-primary" />
+        <div className="flex-1 h-px bg-border" />
+      </div>
+    ),
+  };
   
   return (
     <div className={`rounded-2xl p-6 md:p-8 mb-6 ${
@@ -98,155 +275,57 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
       
       {/* Section Content */}
       <div className="prose prose-invert max-w-none">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            h1: ({ children }) => (
-              <h1 className="text-2xl font-bold text-foreground mt-4 mb-3 first:mt-0">
-                {children}
-              </h1>
-            ),
-            h2: ({ children }) => (
-              <h2 className="text-xl font-bold text-foreground mt-6 mb-3 first:mt-0 flex items-center gap-2">
-                <span className="w-1 h-6 bg-primary rounded-full" />
-                {children}
-              </h2>
-            ),
-            h3: ({ children }) => (
-              <h3 className="text-lg font-semibold text-foreground mt-4 mb-2">
-                {children}
-              </h3>
-            ),
-            p: ({ children }) => {
-              const text = String(children);
-              
-              // Detect "Overall Score:" pattern and render as styled badges
-              if (text.includes('Overall Score:') && text.includes('Target:')) {
-                const match = text.match(/Overall Score:\s*([\d]+\/[\d]+).*Target:\s*([\d-]+\/[\d]+)/);
-                if (match) {
-                  return (
-                    <div className="flex flex-wrap items-center gap-3 my-4">
-                      <span className="bg-primary/20 text-primary border border-primary/40 px-4 py-2 rounded-full font-bold text-base whitespace-nowrap">
-                        Current: {match[1]}
-                      </span>
-                      <span className="text-primary text-xl">→</span>
-                      <span className="bg-primary/20 text-primary border border-primary/40 px-4 py-2 rounded-full font-bold text-base whitespace-nowrap">
-                        Target: {match[2]}
-                      </span>
-                    </div>
-                  );
-                }
-              }
-              
-              // Detect "What this means for you" and render as styled subheading
-              if (text.toLowerCase().startsWith('what this means for you')) {
-                return (
-                  <h3 className="text-lg font-bold text-foreground mt-6 mb-3 flex items-center gap-2">
-                    <span className="w-1 h-5 bg-primary rounded-full" />
-                    What this means for you
-                  </h3>
-                );
-              }
-              
-              // Detect "Example cascade" and render as styled subheading
-              if (text.toLowerCase().startsWith('example cascade')) {
-                return (
-                  <h3 className="text-lg font-bold text-foreground mt-6 mb-3 flex items-center gap-2">
-                    <span className="w-1 h-5 bg-primary rounded-full" />
-                    {children}
-                  </h3>
-                );
-              }
-              
-              return (
-                <p className="text-foreground/90 leading-relaxed mb-4 last:mb-0">
-                  {children}
-                </p>
-              );
-            },
-            strong: ({ children }) => (
-              <strong className="text-primary font-semibold">{children}</strong>
-            ),
-            em: ({ children }) => (
-              <em className="text-foreground/80 italic">{children}</em>
-            ),
-            ul: ({ children }) => (
-              <ul className="space-y-2 mb-4 text-foreground/90 list-none pl-0">
-                {children}
-              </ul>
-            ),
-            ol: ({ children }) => (
-              <ol className="space-y-2 mb-4 text-foreground/90 list-none pl-0 counter-reset-item">
-                {children}
-              </ol>
-            ),
-            li: ({ children }) => (
-              <li className="leading-relaxed flex items-start gap-3">
-                <span className="text-primary mt-1.5 text-xs">●</span>
-                <span className="flex-1">{children}</span>
-              </li>
-            ),
-            table: ({ children }) => (
-              <div className="w-full overflow-x-auto rounded-xl border border-primary/30 my-4">
-                <table className="w-full border-collapse text-left text-sm min-w-[400px]">
-                  {children}
-                </table>
+        {isMetricsSection && metricsData ? (
+          <>
+            {/* Overall Score Badges - Full Width, Horizontal */}
+            {metricsData.overallScore && (
+              <div className="flex flex-wrap items-center gap-4 mb-6">
+                <span className="bg-primary/20 text-primary border border-primary/40 px-5 py-2.5 rounded-full font-bold text-lg whitespace-nowrap">
+                  Current Score: {metricsData.overallScore.current}
+                </span>
+                <span className="text-primary text-2xl font-light">→</span>
+                <span className="bg-primary/20 text-primary border border-primary/40 px-5 py-2.5 rounded-full font-bold text-lg whitespace-nowrap">
+                  Target: {metricsData.overallScore.target}
+                </span>
               </div>
-            ),
-            thead: ({ children }) => (
-              <thead className="bg-primary/15 border-b-2 border-primary/30">
-                {children}
-              </thead>
-            ),
-            tbody: ({ children }) => (
-              <tbody className="divide-y divide-border/50">{children}</tbody>
-            ),
-            tr: ({ children }) => (
-              <tr className="even:bg-muted/20 hover:bg-muted/30 transition-colors">
-                {children}
-              </tr>
-            ),
-            th: ({ children }) => (
-              <th className="px-4 py-3 font-bold text-primary uppercase text-xs tracking-wider">
-                {children}
-              </th>
-            ),
-            td: ({ children }) => (
-              <td className="px-4 py-3 align-top text-foreground/90 border-l-2 border-l-transparent first:border-l-primary/30">
-                {children}
-              </td>
-            ),
-            blockquote: ({ children }) => (
-              <blockquote className="border-l-4 border-primary pl-4 my-4 italic text-foreground/80 bg-primary/5 py-2 rounded-r-lg">
-                {children}
-              </blockquote>
-            ),
-            code: ({ children }) => (
-              <code className="bg-muted/50 text-primary px-1.5 py-0.5 rounded text-sm font-mono">
-                {children}
-              </code>
-            ),
-            a: ({ href, children }) => (
-              <a 
-                href={href} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
-              >
-                {children}
-              </a>
-            ),
-            hr: () => (
-              <div className="flex items-center gap-2 my-6">
-                <div className="flex-1 h-px bg-border" />
-                <div className="w-2 h-2 rounded-full bg-primary" />
-                <div className="flex-1 h-px bg-border" />
+            )}
+            
+            {/* Cleaned Table Content */}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents}
+            >
+              {metricsData.cleanedContent}
+            </ReactMarkdown>
+            
+            {/* What This Means For You - Styled Subheading with Bullets */}
+            {metricsData.whatThisMeans && (
+              <div className="mt-6">
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  What this means for you
+                </h3>
+                <ul className="space-y-2 text-foreground/90 list-none pl-0">
+                  <li className="leading-relaxed flex items-start gap-3">
+                    <span className="text-primary mt-1.5 text-xs">●</span>
+                    <span><strong className="text-primary font-semibold">Current:</strong> {metricsData.whatThisMeans.current}</span>
+                  </li>
+                  <li className="leading-relaxed flex items-start gap-3">
+                    <span className="text-primary mt-1.5 text-xs">●</span>
+                    <span><strong className="text-primary font-semibold">Target:</strong> {metricsData.whatThisMeans.target}</span>
+                  </li>
+                </ul>
               </div>
-            ),
-          }}
-        >
-          {section.content}
-        </ReactMarkdown>
+            )}
+          </>
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={markdownComponents}
+          >
+            {section.content}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   );

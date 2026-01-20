@@ -231,6 +231,73 @@ function preprocessRoadmapSection(content: string): RoadmapSectionData {
   return { tableContent, outcomeText, nextStepsText };
 }
 
+interface CtaSectionData {
+  introText: string;
+  entryPoints: Array<{ number: string; title: string; description: string }>;
+  consultationText: string;
+  sessionIncludes: string[];
+  ctaLink: string;
+  ctaText: string;
+}
+
+// Pre-process CTA section (Section 6) to extract structured content
+function preprocessCtaSection(content: string): CtaSectionData {
+  let introText = '';
+  let entryPoints: Array<{ number: string; title: string; description: string }> = [];
+  let consultationText = '';
+  let sessionIncludes: string[] = [];
+  let ctaLink = '';
+  let ctaText = '';
+  
+  // Extract intro text (marked with INTRO:)
+  const introMatch = content.match(/INTRO:\s*(.+?)(?=ENTRY_POINTS_START:|$)/is);
+  if (introMatch) {
+    introText = introMatch[1].trim();
+  }
+  
+  // Extract entry points
+  const entryPointsMatch = content.match(/ENTRY_POINTS_START:\s*([\s\S]*?)ENTRY_POINTS_END:/i);
+  if (entryPointsMatch) {
+    const lines = entryPointsMatch[1].trim().split('\n');
+    lines.forEach(line => {
+      const match = line.match(/^(\d+)\.\s*([^|]+)\s*\|\s*(.+)$/);
+      if (match) {
+        entryPoints.push({
+          number: match[1],
+          title: match[2].trim(),
+          description: match[3].trim()
+        });
+      }
+    });
+  }
+  
+  // Extract consultation text
+  const consultMatch = content.match(/CONSULTATION:\s*(.+?)(?=SESSION_INCLUDES_START:|$)/is);
+  if (consultMatch) {
+    consultationText = consultMatch[1].trim();
+  }
+  
+  // Extract session includes
+  const sessionMatch = content.match(/SESSION_INCLUDES_START:\s*([\s\S]*?)SESSION_INCLUDES_END:/i);
+  if (sessionMatch) {
+    sessionIncludes = sessionMatch[1].trim().split('\n').map(line => line.trim()).filter(Boolean);
+  }
+  
+  // Extract CTA link
+  const linkMatch = content.match(/CTA_LINK:\s*(.+?)(?=\n|$)/i);
+  if (linkMatch) {
+    ctaLink = linkMatch[1].trim();
+  }
+  
+  // Extract CTA text
+  const textMatch = content.match(/CTA_TEXT:\s*(.+?)$/is);
+  if (textMatch) {
+    ctaText = textMatch[1].trim();
+  }
+  
+  return { introText, entryPoints, consultationText, sessionIncludes, ctaLink, ctaText };
+}
+
 function parseAssessmentIntoSections(assessment: string): Section[] {
   // Split by the horizontal divider pattern
   const parts = assessment.split(/_{10,}/);
@@ -295,6 +362,8 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
   const isConnectSection = section.title.toLowerCase().includes('how these metrics connect');
   const isRoadmapSection = section.title.toLowerCase().includes('implementation roadmap') || 
                            section.title.toLowerCase().includes('roadmap');
+  const isCtaSection = section.title.toLowerCase().includes('ready to make progress') || 
+                       section.title.toLowerCase().includes('predictable, repeatable');
   
   // Pre-process metrics section to extract special elements
   const metricsData = useMemo(() => {
@@ -327,6 +396,14 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     }
     return null;
   }, [section.content, isRoadmapSection]);
+  
+  // Pre-process CTA section (Section 6)
+  const ctaData = useMemo(() => {
+    if (isCtaSection) {
+      return preprocessCtaSection(section.content);
+    }
+    return null;
+  }, [section.content, isCtaSection]);
   
   const markdownComponents = {
     h1: ({ children }: { children?: React.ReactNode }) => (
@@ -623,6 +700,94 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                 <p className="text-foreground/90 leading-loose">
                   {roadmapData.nextStepsText}
                 </p>
+              </div>
+            )}
+          </>
+        ) : isCtaSection && ctaData ? (
+          <>
+            {/* Intro Text */}
+            {ctaData.introText && (
+              <p className="text-foreground/90 leading-relaxed mb-6">
+                {ctaData.introText}
+              </p>
+            )}
+            
+            {/* Entry Points Subheading */}
+            {ctaData.entryPoints.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  With Two Entry Points
+                </h3>
+                
+                {/* Entry Point Cards */}
+                <div className="space-y-3">
+                  {ctaData.entryPoints.map((point, idx) => (
+                    <div 
+                      key={idx}
+                      className="bg-muted/30 border border-border rounded-xl p-4 flex items-start gap-4"
+                    >
+                      <span className="bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0">
+                        {point.number}
+                      </span>
+                      <div>
+                        <h4 className="font-bold text-foreground mb-1">{point.title}</h4>
+                        <p className="text-foreground/70 text-sm">{point.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Consultation Text */}
+            {ctaData.consultationText && (
+              <p className="text-foreground/80 leading-relaxed mb-6 text-sm italic">
+                {ctaData.consultationText}
+              </p>
+            )}
+            
+            {/* Session Includes Subheading */}
+            {ctaData.sessionIncludes.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  Your First KYNARE Session Includes
+                </h3>
+                
+                {/* Checklist Items */}
+                <ul className="space-y-3 list-none pl-0">
+                  {ctaData.sessionIncludes.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <span className="text-primary mt-0.5 shrink-0">✓</span>
+                      <span className="text-foreground/90">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {/* CTA Block */}
+            {ctaData.ctaLink && (
+              <div className="bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/40 rounded-2xl p-6 text-center mt-6">
+                <h3 className="text-xl font-bold text-foreground mb-4">
+                  Schedule Your First Session Today
+                </h3>
+                <a
+                  href={ctaData.ctaLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold px-8 py-3 rounded-full hover:bg-primary/90 transition-colors mb-4"
+                  onClick={() => trackEvent('cta_book_session_click', { location: 'section_6' })}
+                >
+                  <Calendar className="w-5 h-5" />
+                  Book Now
+                </a>
+                {ctaData.ctaText && (
+                  <p className="text-foreground/70 text-sm leading-relaxed mt-4">
+                    {ctaData.ctaText}
+                  </p>
+                )}
               </div>
             )}
           </>

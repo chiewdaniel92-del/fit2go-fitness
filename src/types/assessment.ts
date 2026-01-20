@@ -141,8 +141,16 @@ export const VOICE_STEPS: VoiceStepConfig[] = [
   },
   {
     id: 'voice-history',
-    title: "What have you already tried?",
-    subtitle: "What helped? What didn't?",
+    title: "What steps, programs, or support have you tried so far? And what actually made a difference?",
+    subtitle: "Be honest about what helped, didn't help, or felt confusing",
+    hint: [
+      "Physiotherapy or manual therapy",
+      "Personal training or coaching",
+      "Strength or rehab programs",
+      "Supplements or nutrition changes",
+      "Medical tests or imaging",
+      "Physical therapy",
+    ],
     transcriptKey: 'systemHistoryTranscript',
     audioUrlKey: 'systemHistoryAudioUrl',
   },

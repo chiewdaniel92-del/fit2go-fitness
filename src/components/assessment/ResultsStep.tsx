@@ -82,24 +82,51 @@ function preprocessConnectSection(content: string): ConnectSectionData {
   let cascadeBullets: string[] = [];
   let mainContent = content;
 
-  // Find "Example cascade in your case:" - it may be attached to previous text
-  const cascadeMatch = content.match(/Example cascade in your case:?\s*([\s\S]*)/i);
+  // LAYER 1: Normalize markdown - force blank line before "Example cascade" 
+  // to break the "lazy continuation" rule that glues it to the previous bullet
+  let normalizedContent = content.replace(
+    /([^\n])\s*(Example cascade in your case)/gi,
+    '$1\n\n$2'
+  );
+
+  // Find "Example cascade in your case:" using exec() for precise index-based splitting
+  const cascadeRegex = /Example cascade in your case:?\s*/i;
+  const cascadeMatch = cascadeRegex.exec(normalizedContent);
   
   if (cascadeMatch) {
     cascadeTitle = "Example cascade in your case";
     
-    // Extract the bullet points after the cascade title
-    const afterCascade = cascadeMatch[1];
-    // Match bullet points using ●, -, or * as markers
-    const bullets = afterCascade.match(/[●\-\*]\s*([^\n●\-\*]+)/g);
-    if (bullets) {
-      cascadeBullets = bullets.map(b => b.replace(/^[●\-\*]\s*/, '').trim()).filter(b => b.length > 0);
+    // Split content at the cascade phrase
+    const splitIndex = cascadeMatch.index;
+    mainContent = normalizedContent.substring(0, splitIndex).trim();
+    const afterCascade = normalizedContent.substring(splitIndex + cascadeMatch[0].length);
+    
+    // LAYER 2: Extract cascade items - support BOTH numbered lists AND bullet formats
+    // Match: "1. text", "2. text" OR "- text", "● text", "* text"
+    const lines = afterCascade.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      // Match numbered format: "1. Assess..." or "1) Assess..."
+      const numberedMatch = trimmed.match(/^\d+[\.\)]\s*(.+)$/);
+      if (numberedMatch && numberedMatch[1]) {
+        cascadeBullets.push(numberedMatch[1].trim());
+        continue;
+      }
+      // Match bullet format: "- Assess...", "● Assess...", "* Assess..."
+      const bulletMatch = trimmed.match(/^[●\-\*]\s*(.+)$/);
+      if (bulletMatch && bulletMatch[1]) {
+        cascadeBullets.push(bulletMatch[1].trim());
+      }
     }
     
-    // Remove the cascade section from main content
-    mainContent = content
-      .replace(/Example cascade in your case:?\s*[\s\S]*/i, '')
-      .trim();
+    // Debug log (temporary - can remove after confirming fix)
+    console.debug('[Section 3 Debug]', {
+      foundCascade: true,
+      splitIndex,
+      mainContentPreview: mainContent.slice(-100),
+      cascadeBulletsCount: cascadeBullets.length,
+      cascadeBullets
+    });
   }
 
   return { mainContent, cascadeTitle, cascadeBullets };

@@ -29,7 +29,12 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
     const trimmed = part.trim();
     if (!trimmed) return;
     
-    // Check for section header pattern like "1. Opening Thoughts" or "**1. Opening Thoughts**"
+    // Skip if this is just the main page header
+    if (trimmed.match(/^\*?\*?Your Personalized Health.*Results\*?\*?$/i)) {
+      return;
+    }
+    
+    // Check for numbered section header pattern like "2. Metrics..." or "**3. Next Steps**"
     const headerMatch = trimmed.match(/^\*?\*?(\d+)\.\s*([^\n*]+)\*?\*?\n?([\s\S]*)/);
     
     if (headerMatch) {
@@ -39,16 +44,28 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
         content: headerMatch[3].trim()
       });
     } else {
-      // Content without a numbered header - could be intro or outro
-      const lines = trimmed.split('\n');
-      const firstLine = lines[0].replace(/\*+/g, '').trim();
+      // Check for "Opening Thoughts" pattern (often in bullet/bold format)
+      const openingMatch = trimmed.match(/●?\s*\*?\*?Opening Thoughts\*?\*?\s*([\s\S]*)/i);
       
-      if (firstLine) {
+      if (openingMatch) {
         sections.push({
-          number: '',
-          title: firstLine,
-          content: lines.slice(1).join('\n').trim()
+          number: '1',
+          title: 'Opening Thoughts',
+          content: openingMatch[1].trim()
         });
+      } else {
+        // Content without a numbered header - could be intro or outro
+        const lines = trimmed.split('\n');
+        const firstLine = lines[0].replace(/\*+/g, '').replace(/●/g, '').trim();
+        
+        // Skip if it's the main header repeated
+        if (firstLine && !firstLine.toLowerCase().includes('your personalized health')) {
+          sections.push({
+            number: '',
+            title: firstLine,
+            content: lines.slice(1).join('\n').trim()
+          });
+        }
       }
     }
   });

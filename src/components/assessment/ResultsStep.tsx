@@ -32,14 +32,16 @@ function preprocessMetricsSection(content: string): MetricsData {
   let cleanedContent = content;
 
   // Extract "Overall Score: X/25 -> Target: Y/25" pattern
-  const scoreMatch = content.match(/Overall Score[:\s]*([\d]+\/[\d]+).*?Target[:\s]*([\d-]+\/[\d]+)/i);
+  // Handle various arrow formats: ->, →, >, and possible spaces
+  const scoreMatch = content.match(/Overall Score[:\s]*([\d]+\/[\d]+)\s*(?:->|→|>)\s*Target[:\s]*([\d-]+\/[\d]+)/i);
   if (scoreMatch) {
     overallScore = { current: scoreMatch[1], target: scoreMatch[2] };
   }
 
   // Extract "What this means for you" with Current/Target bullets
-  const currentMatch = content.match(/●\s*Current:\s*([^●|]+?)(?=●|$|\|)/);
-  const targetMatch = content.match(/●\s*Target:\s*([^●|\d][^●|]+?)(?=●|$|\|)/);
+  // Backend uses "- Current:" and "- Target:" format (dashes, not bullets ●)
+  const currentMatch = content.match(/-\s*Current:\s*([^\n-]+)/i);
+  const targetMatch = content.match(/-\s*Target:\s*([^\n-]+)(?![\d\/])/i);
   
   if (currentMatch && targetMatch) {
     whatThisMeans = {
@@ -48,13 +50,22 @@ function preprocessMetricsSection(content: string): MetricsData {
     };
   }
 
-  // Remove rows containing "Overall Score" and "What this means for you" from table
+  // Remove extracted content from the markdown to clean up the table
   cleanedContent = content
-    .replace(/\|[^|\n]*Overall Score[^|\n]*\|[^|\n]*\|/gi, '')
-    .replace(/\|[^|\n]*What this means for you[^|\n]*\|[^|\n]*\|/gi, '')
-    .replace(/●\s*Current:[^●|]+/gi, '')
-    .replace(/●\s*Target:\s*[^●|\d][^●|]+/gi, '')
-    .replace(/\n{3,}/g, '\n\n');
+    // Remove Overall Score line (handles various formats)
+    .replace(/Overall Score[:\s]*[\d]+\/[\d]+\s*(?:->|→|>)\s*Target[:\s]*[\d-]+\/[\d]+\s*\n?/gi, '')
+    // Remove "What this means for you:" header line
+    .replace(/What this means for you:?\s*\n?/gi, '')
+    // Remove "- Current: ..." line
+    .replace(/-\s*Current:\s*[^\n-]+\n?/gi, '')
+    // Remove "- Target: ..." line (but not table Target column which doesn't have dash prefix)
+    .replace(/-\s*Target:\s*[^\n-]+\n?/gi, '')
+    // Also handle bullet format (●) as fallback
+    .replace(/●\s*Current:[^●\n]+/gi, '')
+    .replace(/●\s*Target:\s*[^●\n\d][^●\n]+/gi, '')
+    // Clean up excessive newlines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
   return { overallScore, whatThisMeans, cleanedContent };
 }

@@ -247,6 +247,9 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
           alt="KYNARE" 
           className="w-12 h-12 mx-auto mb-4"
         />
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
+          Your Personalized Health & Performance Results
+        </h1>
         <div className="flex items-center justify-center gap-2 mt-3">
           <span className="h-px w-12 bg-primary/50" />
           <span className="text-primary font-mono text-sm uppercase tracking-widest">Report Card</span>

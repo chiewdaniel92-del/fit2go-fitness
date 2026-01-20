@@ -82,33 +82,21 @@ function preprocessConnectSection(content: string): ConnectSectionData {
   let cascadeBullets: string[] = [];
   let mainContent = content;
 
-  // DEBUG: Log raw content to see what we're working with
-  console.log('[Section 3 RAW]', JSON.stringify(content));
-
-  // GUARANTEED FIX: Use indexOf for case-insensitive search
-  // This avoids regex issues entirely
+  // Use indexOf for case-insensitive search
   const lowerContent = content.toLowerCase();
   const cascadePhrase = 'example cascade in your case';
   const splitIndex = lowerContent.indexOf(cascadePhrase);
   
-  console.log('[Section 3 Split Index]', splitIndex);
-  
   if (splitIndex !== -1) {
     cascadeTitle = "Example cascade in your case";
     
-    // CRITICAL: Split content AT the cascade phrase
-    // mainContent = everything BEFORE the cascade (the → metrics bullets only)
+    // Split content AT the cascade phrase
     mainContent = content.substring(0, splitIndex).trim();
     
-    // afterCascade = everything AFTER the cascade phrase (the bullet items)
-    // Find where the phrase ends (including optional colon and whitespace)
+    // afterCascade = everything AFTER the cascade phrase
     const afterPhraseStart = splitIndex + cascadePhrase.length;
     let afterCascade = content.substring(afterPhraseStart);
-    // Remove leading colon and whitespace if present
     afterCascade = afterCascade.replace(/^:?\s*/, '');
-    
-    console.log('[Section 3 mainContent (last 150 chars)]', mainContent.slice(-150));
-    console.log('[Section 3 afterCascade]', afterCascade);
     
     // Extract cascade items - support numbered lists, bullets, and emoji bullets
     const lines = afterCascade.split('\n');
@@ -123,30 +111,90 @@ function preprocessConnectSection(content: string): ConnectSectionData {
         continue;
       }
       
-      // Match bullet format: "- text", "● text", "* text", or emoji bullets "●text"
+      // Match bullet format: "- text", "● text", "* text"
       const bulletMatch = trimmed.match(/^[●\-\*]\s*(.+)$/);
       if (bulletMatch && bulletMatch[1]) {
         cascadeBullets.push(bulletMatch[1].trim());
         continue;
       }
       
-      // Also try to match lines that start directly with text after the title
-      // (in case there are no bullet markers)
+      // Plain text line items
       if (trimmed.length > 0 && !trimmed.startsWith('#') && !trimmed.startsWith('*')) {
-        // Skip if it looks like a new section header
         if (!trimmed.match(/^\d+\.\s+[A-Z]/)) {
-          // This might be a plain text line item
           cascadeBullets.push(trimmed);
         }
       }
     }
-    
-    console.log('[Section 3 Extracted Bullets]', cascadeBullets);
-  } else {
-    console.log('[Section 3] CASCADE PHRASE NOT FOUND');
   }
 
   return { mainContent, cascadeTitle, cascadeBullets };
+}
+
+interface ProgressionScenario {
+  title: string;
+  bullets: string[];
+}
+
+interface ProgressionSectionData {
+  introText: string;
+  scenarios: ProgressionScenario[];
+}
+
+// Pre-process progression section to extract individual scenarios
+function preprocessProgressionSection(content: string): ProgressionSectionData {
+  let introText = '';
+  const scenarios: ProgressionScenario[] = [];
+  
+  // Find all "Scenario X:" matches using regex
+  const scenarioPattern = /Scenario\s+\d+:/gi;
+  const matches: { index: number; match: string }[] = [];
+  let match;
+  
+  while ((match = scenarioPattern.exec(content)) !== null) {
+    matches.push({ index: match.index, match: match[0] });
+  }
+  
+  if (matches.length === 0) {
+    // No scenarios found, return content as intro
+    return { introText: content.trim(), scenarios: [] };
+  }
+  
+  // Extract intro text (before first scenario)
+  introText = content.substring(0, matches[0].index).trim();
+  
+  // Process each scenario
+  for (let i = 0; i < matches.length; i++) {
+    const startIdx = matches[i].index;
+    const endIdx = i < matches.length - 1 ? matches[i + 1].index : content.length;
+    const scenarioBlock = content.substring(startIdx, endIdx).trim();
+    
+    // Extract title (first line) and bullets (rest)
+    const lines = scenarioBlock.split('\n');
+    const titleLine = lines[0].trim();
+    const bulletLines = lines.slice(1);
+    
+    const bullets: string[] = [];
+    for (const line of bulletLines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      
+      // Match bullet format: "●text", "● text", "- text", "* text"
+      const bulletMatch = trimmed.match(/^[●\-\*]\s*(.+)$/);
+      if (bulletMatch && bulletMatch[1]) {
+        bullets.push(bulletMatch[1].trim());
+      } else if (trimmed.length > 0 && !trimmed.match(/^Scenario\s+\d+:/i)) {
+        // Plain text that's not a scenario header
+        bullets.push(trimmed);
+      }
+    }
+    
+    scenarios.push({
+      title: titleLine,
+      bullets
+    });
+  }
+  
+  return { introText, scenarios };
 }
 
 function parseAssessmentIntoSections(assessment: string): Section[] {
@@ -205,7 +253,11 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
 
 function SectionCard({ section, isNextSteps = false }: { section: Section; isNextSteps?: boolean }) {
   const isNextStepsSection = isNextSteps || section.title.toLowerCase().includes('next step');
-  const isMetricsSection = section.title.toLowerCase().includes('metrics') && !section.title.toLowerCase().includes('connect');
+  const isProgressionSection = section.title.toLowerCase().includes('progression') || 
+                               section.title.toLowerCase().includes('scenarios');
+  const isMetricsSection = section.title.toLowerCase().includes('metrics') && 
+                           !section.title.toLowerCase().includes('connect') &&
+                           !section.title.toLowerCase().includes('progression');
   const isConnectSection = section.title.toLowerCase().includes('how these metrics connect');
   
   // Pre-process metrics section to extract special elements
@@ -223,6 +275,14 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     }
     return null;
   }, [section.content, isConnectSection]);
+  
+  // Pre-process progression section to extract scenarios
+  const progressionData = useMemo(() => {
+    if (isProgressionSection) {
+      return preprocessProgressionSection(section.content);
+    }
+    return null;
+  }, [section.content, isProgressionSection]);
   
   const markdownComponents = {
     h1: ({ children }: { children?: React.ReactNode }) => (
@@ -448,6 +508,38 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                 )}
               </div>
             )}
+          </>
+        ) : isProgressionSection && progressionData ? (
+          <>
+            {/* Intro text if any */}
+            {progressionData.introText && (
+              <p className="text-foreground/90 leading-relaxed mb-4">
+                {progressionData.introText}
+              </p>
+            )}
+            
+            {/* Each Scenario as a separate subheading */}
+            {progressionData.scenarios.map((scenario, idx) => (
+              <div key={idx} className="mt-6 first:mt-0">
+                {/* Scenario Title as subheading */}
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  {scenario.title}
+                </h3>
+                
+                {/* Scenario Bullets */}
+                {scenario.bullets.length > 0 && (
+                  <ul className="space-y-2 text-foreground/90 list-none pl-0">
+                    {scenario.bullets.map((bullet, bulletIdx) => (
+                      <li key={bulletIdx} className="leading-relaxed flex items-start gap-3">
+                        <span className="text-primary mt-1.5 text-xs">●</span>
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
           </>
         ) : (
           <ReactMarkdown

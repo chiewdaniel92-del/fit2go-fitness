@@ -25,6 +25,11 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Drag-to-scroll state
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftPos, setScrollLeftPos] = useState(0);
 
   const scrollLeft = () => {
     scrollContainerRef.current?.scrollBy({ left: -150, behavior: 'smooth' });
@@ -32,6 +37,30 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
 
   const scrollRight = () => {
     scrollContainerRef.current?.scrollBy({ left: 150, behavior: 'smooth' });
+  };
+
+  // Desktop drag-to-scroll handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setScrollLeftPos(scrollContainerRef.current.scrollLeft);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; // Multiply for faster scroll
+    scrollContainerRef.current.scrollLeft = scrollLeftPos - walk;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
   };
   
   const {
@@ -147,10 +176,16 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
                 <ChevronLeft className="w-3 h-3 text-muted-foreground/60" />
               </button>
               
-              {/* Scrollable container with compact pills */}
+              {/* Scrollable container with compact pills - drag-to-scroll enabled */}
               <div
                 ref={scrollContainerRef}
-                className="overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-5 select-none cursor-grab active:cursor-grabbing"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+                className={`overflow-x-auto scrollbar-hide px-5 select-none ${
+                  isDragging ? 'cursor-grabbing' : 'cursor-grab'
+                }`}
               >
                 <div className="flex gap-1.5 py-0.5">
                   {config.hint.map((item, index) => (

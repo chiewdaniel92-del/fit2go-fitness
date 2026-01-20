@@ -126,8 +126,16 @@ export const VOICE_STEPS: VoiceStepConfig[] = [
   },
   {
     id: 'voice-success',
-    title: "Six months from now, what needs to be true for you to feel like this was a win?",
-    subtitle: "",
+    title: "Think about your body, performance, and daily life. What would feel different if you succeeded?",
+    subtitle: "Be specific. Small details help us guide your plan precisely",
+    hint: [
+      "Feeling strong and pain-free in daily movement or training",
+      "Being able to recover faster between sessions or days",
+      "Having consistent energy levels for work, training, or life",
+      "Achieving a new strength, skill, or mobility milestone",
+      "Feeling confident in your body's reliability",
+      "Knowing your efforts are aligned and compounding towards bigger goals",
+    ],
     transcriptKey: 'successCriteriaTranscript',
     audioUrlKey: 'successCriteriaAudioUrl',
   },

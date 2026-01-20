@@ -200,24 +200,35 @@ function preprocessProgressionSection(content: string): ProgressionSectionData {
 interface RoadmapSectionData {
   tableContent: string;
   outcomeText: string | null;
+  nextStepsText: string | null;
 }
 
-// Pre-process roadmap section to extract Outcome text from table
+// Pre-process roadmap section to extract Outcome and Next Steps text
 function preprocessRoadmapSection(content: string): RoadmapSectionData {
   let outcomeText: string | null = null;
+  let nextStepsText: string | null = null;
   let tableContent = content;
   
-  // Find "Outcome:" and extract everything after it (may be in table row or standalone)
-  const outcomeMatch = content.match(/\|?\s*Outcome:\s*(.+?)(?:\|?\s*$)/is);
+  // Extract "Outcome:" text (stops at "Next Steps:" if present, or end of string)
+  const outcomeMatch = content.match(/Outcome:\s*(.+?)(?=Next Steps:|$)/is);
   if (outcomeMatch) {
     outcomeText = outcomeMatch[1].trim().replace(/\|/g, '').trim();
-    // Remove the Outcome row/line from table content
-    tableContent = content.replace(/\|?\s*Outcome:.*$/is, '').trim();
-    // Clean up any trailing empty table rows
-    tableContent = tableContent.replace(/\|\s*\|\s*\|\s*$/gm, '').trim();
   }
   
-  return { tableContent, outcomeText };
+  // Extract "Next Steps:" text
+  const nextStepsMatch = content.match(/Next Steps:\s*(.+?)$/is);
+  if (nextStepsMatch) {
+    nextStepsText = nextStepsMatch[1].trim().replace(/\|/g, '').trim();
+  }
+  
+  // Remove both from table content
+  tableContent = content
+    .replace(/Outcome:.*$/is, '')
+    .trim();
+  // Clean up any trailing empty table rows
+  tableContent = tableContent.replace(/\|\s*\|\s*\|\s*$/gm, '').trim();
+  
+  return { tableContent, outcomeText, nextStepsText };
 }
 
 function parseAssessmentIntoSections(assessment: string): Section[] {
@@ -598,6 +609,19 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                 </h3>
                 <p className="text-foreground/90 leading-loose">
                   {roadmapData.outcomeText}
+                </p>
+              </div>
+            )}
+            
+            {/* Next Steps Subheading - Separate from table */}
+            {roadmapData.nextStepsText && (
+              <div className="mt-6">
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  Next Steps
+                </h3>
+                <p className="text-foreground/90 leading-loose">
+                  {roadmapData.nextStepsText}
                 </p>
               </div>
             )}

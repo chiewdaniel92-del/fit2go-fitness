@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StepContainer } from "./StepContainer";
@@ -24,6 +24,15 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
   const [textInput, setTextInput] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    scrollContainerRef.current?.scrollBy({ left: -150, behavior: 'smooth' });
+  };
+
+  const scrollRight = () => {
+    scrollContainerRef.current?.scrollBy({ left: 150, behavior: 'smooth' });
+  };
   
   const {
     state,
@@ -129,18 +138,25 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
           <div className="mt-2 md:mt-3 w-full">
             <p className="text-xs text-muted-foreground mb-1.5 italic text-left">Examples:</p>
             <div className="relative">
-              {/* Left fade indicator */}
-              <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none flex items-center">
+              {/* Left scroll button */}
+              <button
+                onClick={scrollLeft}
+                className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-background to-transparent z-10 flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+                aria-label="Scroll left"
+              >
                 <ChevronLeft className="w-3 h-3 text-muted-foreground/60" />
-              </div>
+              </button>
               
               {/* Scrollable container with compact pills */}
-              <div className="overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-5">
+              <div
+                ref={scrollContainerRef}
+                className="overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory px-5 select-none cursor-grab active:cursor-grabbing"
+              >
                 <div className="flex gap-1.5 py-0.5">
                   {config.hint.map((item, index) => (
                     <div
                       key={index}
-                      className="shrink-0 snap-start px-2.5 py-1 bg-muted/60 text-muted-foreground text-[11px] rounded-full border border-border/50 whitespace-nowrap"
+                      className="shrink-0 snap-start px-2.5 py-1 bg-muted/60 text-muted-foreground text-[11px] rounded-full border border-border/50 whitespace-nowrap pointer-events-none"
                     >
                       {item}
                     </div>
@@ -148,10 +164,14 @@ export function GenericVoiceStep({ config, onSubmit, onBack }: GenericVoiceStepP
                 </div>
               </div>
               
-              {/* Right fade indicator */}
-              <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none flex items-center justify-end">
+              {/* Right scroll button */}
+              <button
+                onClick={scrollRight}
+                className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent z-10 flex items-center justify-end cursor-pointer hover:opacity-80 transition-opacity"
+                aria-label="Scroll right"
+              >
                 <ChevronRight className="w-3 h-3 text-muted-foreground/60" />
-              </div>
+              </button>
             </div>
           </div>
         )}

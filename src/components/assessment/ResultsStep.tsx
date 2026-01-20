@@ -70,6 +70,41 @@ function preprocessMetricsSection(content: string): MetricsData {
   return { overallScore, whatThisMeans, cleanedContent };
 }
 
+interface ConnectSectionData {
+  mainContent: string;
+  cascadeTitle: string | null;
+  cascadeBullets: string[];
+}
+
+// Pre-process connect section to extract "Example cascade in your case"
+function preprocessConnectSection(content: string): ConnectSectionData {
+  let cascadeTitle: string | null = null;
+  let cascadeBullets: string[] = [];
+  let mainContent = content;
+
+  // Find "Example cascade in your case:" - it may be attached to previous text
+  const cascadeMatch = content.match(/Example cascade in your case:?\s*([\s\S]*)/i);
+  
+  if (cascadeMatch) {
+    cascadeTitle = "Example cascade in your case";
+    
+    // Extract the bullet points after the cascade title
+    const afterCascade = cascadeMatch[1];
+    // Match bullet points using ●, -, or * as markers
+    const bullets = afterCascade.match(/[●\-\*]\s*([^\n●\-\*]+)/g);
+    if (bullets) {
+      cascadeBullets = bullets.map(b => b.replace(/^[●\-\*]\s*/, '').trim()).filter(b => b.length > 0);
+    }
+    
+    // Remove the cascade section from main content
+    mainContent = content
+      .replace(/Example cascade in your case:?\s*[\s\S]*/i, '')
+      .trim();
+  }
+
+  return { mainContent, cascadeTitle, cascadeBullets };
+}
+
 function parseAssessmentIntoSections(assessment: string): Section[] {
   // Split by the horizontal divider pattern
   const parts = assessment.split(/_{10,}/);
@@ -127,6 +162,7 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
 function SectionCard({ section, isNextSteps = false }: { section: Section; isNextSteps?: boolean }) {
   const isNextStepsSection = isNextSteps || section.title.toLowerCase().includes('next step');
   const isMetricsSection = section.title.toLowerCase().includes('metrics');
+  const isConnectSection = section.title.toLowerCase().includes('how these metrics connect');
   
   // Pre-process metrics section to extract special elements
   const metricsData = useMemo(() => {
@@ -135,6 +171,14 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     }
     return null;
   }, [section.content, isMetricsSection]);
+  
+  // Pre-process connect section to extract cascade subsection
+  const connectData = useMemo(() => {
+    if (isConnectSection) {
+      return preprocessConnectSection(section.content);
+    }
+    return null;
+  }, [section.content, isConnectSection]);
   
   const markdownComponents = {
     h1: ({ children }: { children?: React.ReactNode }) => (
@@ -326,6 +370,38 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                     <span><strong className="text-primary font-semibold">Target:</strong> {metricsData.whatThisMeans.target}</span>
                   </li>
                 </ul>
+              </div>
+            )}
+          </>
+        ) : isConnectSection && connectData ? (
+          <>
+            {/* Main "→" bullet points */}
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={markdownComponents}
+            >
+              {connectData.mainContent}
+            </ReactMarkdown>
+            
+            {/* Example Cascade Subheading */}
+            {connectData.cascadeTitle && (
+              <div className="mt-6">
+                <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-primary rounded-full" />
+                  {connectData.cascadeTitle}
+                </h3>
+                
+                {/* Cascade Bullet Points */}
+                {connectData.cascadeBullets.length > 0 && (
+                  <ul className="space-y-2 text-foreground/90 list-none pl-0">
+                    {connectData.cascadeBullets.map((bullet, idx) => (
+                      <li key={idx} className="leading-relaxed flex items-start gap-3">
+                        <span className="text-primary mt-1.5 text-xs">●</span>
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </>

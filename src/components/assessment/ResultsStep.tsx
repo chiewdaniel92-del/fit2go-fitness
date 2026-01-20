@@ -82,51 +82,68 @@ function preprocessConnectSection(content: string): ConnectSectionData {
   let cascadeBullets: string[] = [];
   let mainContent = content;
 
-  // LAYER 1: Normalize markdown - force blank line before "Example cascade" 
-  // to break the "lazy continuation" rule that glues it to the previous bullet
-  let normalizedContent = content.replace(
-    /([^\n])\s*(Example cascade in your case)/gi,
-    '$1\n\n$2'
-  );
+  // DEBUG: Log raw content to see what we're working with
+  console.log('[Section 3 RAW]', JSON.stringify(content));
 
-  // Find "Example cascade in your case:" using exec() for precise index-based splitting
-  const cascadeRegex = /Example cascade in your case:?\s*/i;
-  const cascadeMatch = cascadeRegex.exec(normalizedContent);
+  // GUARANTEED FIX: Use indexOf for case-insensitive search
+  // This avoids regex issues entirely
+  const lowerContent = content.toLowerCase();
+  const cascadePhrase = 'example cascade in your case';
+  const splitIndex = lowerContent.indexOf(cascadePhrase);
   
-  if (cascadeMatch) {
+  console.log('[Section 3 Split Index]', splitIndex);
+  
+  if (splitIndex !== -1) {
     cascadeTitle = "Example cascade in your case";
     
-    // Split content at the cascade phrase
-    const splitIndex = cascadeMatch.index;
-    mainContent = normalizedContent.substring(0, splitIndex).trim();
-    const afterCascade = normalizedContent.substring(splitIndex + cascadeMatch[0].length);
+    // CRITICAL: Split content AT the cascade phrase
+    // mainContent = everything BEFORE the cascade (the → metrics bullets only)
+    mainContent = content.substring(0, splitIndex).trim();
     
-    // LAYER 2: Extract cascade items - support BOTH numbered lists AND bullet formats
-    // Match: "1. text", "2. text" OR "- text", "● text", "* text"
+    // afterCascade = everything AFTER the cascade phrase (the bullet items)
+    // Find where the phrase ends (including optional colon and whitespace)
+    const afterPhraseStart = splitIndex + cascadePhrase.length;
+    let afterCascade = content.substring(afterPhraseStart);
+    // Remove leading colon and whitespace if present
+    afterCascade = afterCascade.replace(/^:?\s*/, '');
+    
+    console.log('[Section 3 mainContent (last 150 chars)]', mainContent.slice(-150));
+    console.log('[Section 3 afterCascade]', afterCascade);
+    
+    // Extract cascade items - support numbered lists, bullets, and emoji bullets
     const lines = afterCascade.split('\n');
     for (const line of lines) {
       const trimmed = line.trim();
-      // Match numbered format: "1. Assess..." or "1) Assess..."
+      if (!trimmed) continue;
+      
+      // Match numbered format: "1. text" or "1) text"
       const numberedMatch = trimmed.match(/^\d+[\.\)]\s*(.+)$/);
       if (numberedMatch && numberedMatch[1]) {
         cascadeBullets.push(numberedMatch[1].trim());
         continue;
       }
-      // Match bullet format: "- Assess...", "● Assess...", "* Assess..."
+      
+      // Match bullet format: "- text", "● text", "* text", or emoji bullets "●text"
       const bulletMatch = trimmed.match(/^[●\-\*]\s*(.+)$/);
       if (bulletMatch && bulletMatch[1]) {
         cascadeBullets.push(bulletMatch[1].trim());
+        continue;
+      }
+      
+      // Also try to match lines that start directly with text after the title
+      // (in case there are no bullet markers)
+      if (trimmed.length > 0 && !trimmed.startsWith('#') && !trimmed.startsWith('*')) {
+        // Skip if it looks like a new section header
+        if (!trimmed.match(/^\d+\.\s+[A-Z]/)) {
+          // This might be a plain text line item
+          cascadeBullets.push(trimmed);
+        }
       }
     }
     
-    // Debug log (temporary - can remove after confirming fix)
-    console.debug('[Section 3 Debug]', {
-      foundCascade: true,
-      splitIndex,
-      mainContentPreview: mainContent.slice(-100),
-      cascadeBulletsCount: cascadeBullets.length,
-      cascadeBullets
-    });
+    console.log('[Section 3 Extracted Bullets]', cascadeBullets);
+  } else {
+    console.log('[Section 3] CASCADE PHRASE NOT FOUND');
   }
 
   return { mainContent, cascadeTitle, cascadeBullets };

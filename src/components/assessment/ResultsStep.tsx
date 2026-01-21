@@ -933,7 +933,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 py-4 px-4 my-6 bg-card/50 border border-border/50 rounded-xl">
                   <span className="text-sm text-muted-foreground">Ready to take the next step?</span>
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     className="gap-2"
                     onClick={() => {

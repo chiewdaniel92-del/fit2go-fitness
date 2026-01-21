@@ -896,15 +896,57 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
         </p>
       </div>
 
+      {/* Mini CTA Banner - shown between Section 1 and Section 2 */}
+      {(() => {
+        const MiniCtaBanner = () => (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 py-4 px-4 my-6 bg-card/50 border border-border/50 rounded-xl">
+            <span className="text-sm text-muted-foreground">Ready to take the next step?</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                trackEvent("mini_cta_clicked", { location: "after_section_1" });
+                window.open("https://kynare.com/timetable", "_blank");
+              }}
+            >
+              <Calendar className="w-4 h-4" />
+              Schedule Your First Session
+            </Button>
+          </div>
+        );
+
+        return null; // Component defined, rendered below
+      })()}
+
       {/* Assessment Sections */}
       <div className="w-full max-w-3xl mx-auto">
         {sections.length > 0 ? (
           sections.map((section, index) => (
-            <SectionCard 
-              key={index} 
-              section={section}
-              isNextSteps={index === sections.length - 1}
-            />
+            <Fragment key={index}>
+              <SectionCard 
+                section={section}
+                isNextSteps={index === sections.length - 1}
+              />
+              {/* Insert mini CTA after Section 1 (Opening Thoughts) */}
+              {section.number === '1' && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 py-4 px-4 my-6 bg-card/50 border border-border/50 rounded-xl">
+                  <span className="text-sm text-muted-foreground">Ready to take the next step?</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      trackEvent("mini_cta_clicked", { location: "after_section_1" });
+                      window.open("https://kynare.com/timetable", "_blank");
+                    }}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Schedule Your First Session
+                  </Button>
+                </div>
+              )}
+            </Fragment>
           ))
         ) : (
           // Fallback: render as single card if parsing fails

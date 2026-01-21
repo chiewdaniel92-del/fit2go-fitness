@@ -389,8 +389,9 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
 
   const roadmapBody = roadmapRows
     .map((row) => {
-      const line1 = sanitizeTableCell(row[2].line1);
-      const line2 = sanitizeTableCell(row[2].line2);
+      const actions = row[2] as { line1: string; line2: string };
+      const line1 = sanitizeTableCell(actions.line1);
+      const line2 = sanitizeTableCell(actions.line2);
       const keyActions = line2
         ? `${line1} ${LINE_BREAK_TOKEN} ${line2}`
         : line1;
@@ -437,20 +438,22 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     "Outcome: By following this roadmap, you gain predictable performance, coordinated interventions, and measurable improvements - allowing you to train and move without pain, while building long-term resilience.",
     "________________________________________",
     "Next Steps: Book your first session to start the baseline assessment - your personalized roadmap begins here. Every step is tracked, measured, and aligned to your goals.",
-    "Ready to Make Progress Predictable, Repeatable, and Accountable?",
+    "________________________________________",
+    "6. Ready to Make Progress Predictable, Repeatable, and Accountable?",
     "KYNARE is not just a collection of services - it's a system designed to make your progress explainable, repeatable, and measurable.",
-    "With two entry points:",
+    "ENTRY_POINTS_START:",
     "1. Blood Assessment - establish your internal health baseline",
     "2. KYNARE Onset (First Session + Physical Assessment) - understand your current body state and performance",
+    "ENTRY_POINTS_END:",
     "During your consultation, we'll identify the most suitable entry point for you and show exactly where you sit in the KYNARE Ecosystem flow, so every action you take is informed and strategic.",
-    "Your First KYNARE Session Includes:",
+    "SESSION_INCLUDES_START:",
     "- Personalized Client Profiling & Lifestyle Assessment",
     "- Personalized Roadmap to address your primary bottleneck",
     "- Suggested protocols to enhance movement, recovery, and nutrition",
     "- Internal/External Metrics tracking framework to monitor your progress",
-    "Schedule your first session today:",
-    "https://kynare.com/timetable",
-    "Don't let guesswork slow your progress - start your journey with KYNARE inside our ecosystem so you can feel, perform better & thrive daily!",
+    "SESSION_INCLUDES_END:",
+    "CTA_LINK: https://kynare.com/timetable",
+    "CTA_TEXT: Don't let guesswork slow your progress - start your journey with KYNARE inside our ecosystem so you can feel, perform better & thrive daily!",
   ].join("\n");
 };
 

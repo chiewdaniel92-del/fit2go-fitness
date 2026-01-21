@@ -1,4 +1,4 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+﻿import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
@@ -35,27 +35,39 @@ Output must be valid JSON with these keys:
 - cluster: string or null
 - risk_flags: array of strings
 - opportunity_flags: array of strings
-- opening: object with fields {activities, limitations, interventions, goals}
+- opening_paragraphs: array of 2-3 paragraphs (strings)
 - summaries: object with fields {current, target}
 - quick_takes: object with fields {bss, lrb, pcc, sis, oas}
 - cascade_steps: array of exactly 4 strings
-- scenarios: array of exactly 3 objects with fields {focus, current, improved, impact}
-- roadmap_actions: array of exactly 5 strings
+- scenarios: array of 3-5 objects with fields {title, metric_key, current, improved, impact}
+- roadmap_actions: array of exactly 5 objects with fields {line1, line2}
+
+Use these KB blocks:
+- KYNARE_KB_EXCERPTS for overall framing and opening thoughts
+- KYNARE_KB_METRICS_EXCERPTS for metric scores and quick takes
+- KYNARE_KB_SCENARIOS_EXCERPTS for scenarios and progression logic
+- KYNARE_KB_SEQUENCING_EXCERPTS for roadmap actions and sequencing rules
 
 Style constraints:
 - Use "you" language. Keep sentences concise and non-medical.
-- opening.activities/limitations/interventions/goals are short phrases, no trailing punctuation.
+- opening_paragraphs must be a summary of the whole report and motivate the user to read on; 2-3 paragraphs, 1-2 sentences each.
+- Each opening paragraph should include at least one specific insight from the user's inputs or KB, not generic filler.
 - quick_takes are 10-18 words each and should match the metric score.
 - summaries.current and summaries.target are one sentence each.
-- scenarios.focus must be one of: "Body Reliability", "System Integration", "Effort vs Recovery Balance".
-- roadmap_actions should be brief, 8-16 words each.
-- Use these metric names in your phrasing: Body Reliability, Effort vs Recovery Balance, Primary Constraint Clarity, System Integration, Goal Readiness.
+- cascade_steps must reference the user's inputs and priorities.
+- scenarios.title is 4-8 words. metric_key must be one of: bss, lrb, pcc, sis, oas.
+- scenarios.current/improved/impact are short phrases without leading labels or markdown (no **).
+- roadmap_actions.line1/line2 are 8-18 words each.
+- Use these metric names in phrasing: Body Reliability, Effort vs Recovery Balance, Primary Constraint Clarity, System Integration, Goal Readiness.
 
 Return JSON only. Do not return markdown.`;
 
 const CHAT_MODEL = "gpt-4o-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const KB_MATCH_COUNT = 10;
+const KB_METRICS_MATCH_COUNT = 6;
+const KB_SCENARIOS_MATCH_COUNT = 6;
+const KB_SEQUENCING_MATCH_COUNT = 6;
 
 interface AssessmentInput {
   age: number;
@@ -86,12 +98,7 @@ interface AssessmentResult {
   cluster: string | null;
   risk_flags: string[];
   opportunity_flags: string[];
-  opening: {
-    activities: string;
-    limitations: string;
-    interventions: string;
-    goals: string;
-  };
+  opening_paragraphs: string[];
   summaries: {
     current: string;
     target: string;
@@ -105,12 +112,16 @@ interface AssessmentResult {
   };
   cascade_steps: string[];
   scenarios: Array<{
-    focus: string;
+    title: string;
+    metric_key: string;
     current: string;
     improved: string;
     impact: string;
   }>;
-  roadmap_actions: string[];
+  roadmap_actions: Array<{
+    line1: string;
+    line2: string;
+  }>;
 }
 
 const clampScore = (value: number) => {
@@ -119,11 +130,13 @@ const clampScore = (value: number) => {
   return Math.min(5, Math.max(1, rounded));
 };
 
-const normalizeCopy = (value: string) => value
-  .replace(/[“”]/g, '"')
-  .replace(/[’]/g, "'")
-  .replace(/\s+/g, " ")
-  .trim();
+const normalizeCopy = (value: string) =>
+  value
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const safeText = (value: unknown, fallback: string) =>
   typeof value === "string" && value.trim().length > 0
@@ -139,7 +152,22 @@ const safeList = (value: unknown, length: number, fallback: string[]) => {
   return items.slice(0, length);
 };
 
+const safeParagraphs = (
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: string[],
+) => {
+  if (!Array.isArray(value)) return fallback;
+  const items = value
+    .map((item) => (typeof item === "string" ? normalizeCopy(item) : ""))
+    .filter((item) => item.length > 0);
+  if (items.length < min) return fallback;
+  return items.slice(0, max);
+};
+
 const sanitizeTableCell = (value: string) => value.replace(/\|/g, "/");
+const LINE_BREAK_TOKEN = "[[BR]]";
 
 const METRICS = [
   { key: "bss", label: "Body Reliability", emoji: "🏃🏽" },
@@ -148,6 +176,9 @@ const METRICS = [
   { key: "sis", label: "System Integration", emoji: "🌐" },
   { key: "oas", label: "Goal Readiness", emoji: "🎯" },
 ] as const;
+
+
+
 
 const getTargetScore = (score: number | null) => (score && score >= 4 ? 5 : 4);
 
@@ -162,19 +193,16 @@ const formatTargetRange = (targetLow: number) => {
 };
 
 type MetricKey = (typeof METRICS)[number]["key"];
+const METRIC_KEY_SET = new Set<MetricKey>(["bss", "lrb", "pcc", "sis", "oas"]);
 
 const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey, number | null>) => {
-  const opening = parsed.opening ?? {
-    activities: "",
-    limitations: "",
-    interventions: "",
-    goals: "",
-  };
+  const fallbackOpening = [
+    "Your inputs point to a clear bottleneck that is disrupting confidence and consistency under load. This report links those signals to specific KYNARE metrics so the path forward is no longer guesswork.",
+    "You are not far off your goal, but fragmented effort and recovery gaps are slowing momentum. Each section explains exactly what is holding you back and how to sequence the fixes.",
+    "This is a full-system view of your body, recovery, and performance, not a generic checklist. Read on to see the precise levers that will create reliable, measurable progress.",
+  ];
 
-  const openingActivities = safeText(opening.activities, "the activities you enjoy");
-  const openingLimitations = safeText(opening.limitations, "pain and fatigue");
-  const openingInterventions = safeText(opening.interventions, "past interventions");
-  const openingGoals = safeText(opening.goals, "move with confidence and enjoy your active life");
+  const openingParagraphs = safeParagraphs(parsed.opening_paragraphs, 2, 3, fallbackOpening);
 
   const summaries = parsed.summaries ?? { current: "", target: "" };
   const currentSummary = safeText(
@@ -201,20 +229,125 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     "Progress toward goals with confidence and consistent performance.",
   ]);
 
-  const scenarios = Array.isArray(parsed.scenarios) ? parsed.scenarios : [];
-  const scenarioMap = new Map(
-    scenarios
-      .filter((scenario) => scenario && typeof scenario.focus === "string")
-      .map((scenario) => [scenario.focus, scenario]),
-  );
+  const fallbackScenarios = [
+    {
+      title: "Improve Body Reliability",
+      metric_key: "bss",
+      current: "Unpredictable days interrupt training or daily movement.",
+      improved: "The body responds consistently across sessions and daily activity.",
+      impact: "You can progress without flare-ups derailing your plan.",
+    },
+    {
+      title: "Integrate Past Interventions",
+      metric_key: "sis",
+      current: "Interventions are siloed, so gains fade between changes.",
+      improved: "A shared plan aligns recovery, training, and diagnostics.",
+      impact: "Progress compounds instead of restarting with every new approach.",
+    },
+    {
+      title: "Optimize Recovery",
+      metric_key: "lrb",
+      current: "Fatigue lingers and recovery does not match the load.",
+      improved: "Workload and recovery are calibrated to your real capacity.",
+      impact: "Sessions feel productive and sustainable across the week.",
+    },
+    {
+      title: "Clarify the Bottleneck",
+      metric_key: "pcc",
+      current: "Multiple issues compete for attention without a clear priority.",
+      improved: "One dominant constraint is identified and addressed first.",
+      impact: "Effort becomes focused and outcomes move faster.",
+    },
+    {
+      title: "Align Goal Readiness",
+      metric_key: "oas",
+      current: "Goals feel right, but the path is not matched to capacity.",
+      improved: "Expectations and sequencing align with what your body can support.",
+      impact: "You move toward the goal without unnecessary setbacks.",
+    },
+  ] as const;
 
-  const roadmapActions = safeList(parsed.roadmap_actions, 5, [
-    "Bloodwork + physical assessment to establish internal markers and baselines.",
-    "Review results, adjust nutrition if needed, and retest key movements.",
-    "Begin gradual ramp up with controlled loading and recovery-informed intensity.",
-    "Reassess movement patterns and adjust program based on feedback.",
-    "Track metrics weekly, integrate interventions, and educate on triggers.",
-  ]);
+  const scenarioCandidates = Array.isArray(parsed.scenarios) ? parsed.scenarios : [];
+  const scenarioMap = new Map<MetricKey, {
+    title: string;
+    metric_key: MetricKey;
+    current: string;
+    improved: string;
+    impact: string;
+  }>();
+
+  for (const scenario of scenarioCandidates) {
+    if (!scenario || typeof scenario !== "object") continue;
+    const metricKey = typeof scenario.metric_key === "string" && METRIC_KEY_SET.has(scenario.metric_key as MetricKey)
+      ? (scenario.metric_key as MetricKey)
+      : null;
+    if (!metricKey || scenarioMap.has(metricKey)) continue;
+
+    const metricLabel = METRICS.find((metric) => metric.key === metricKey)?.label ?? "Metric";
+    scenarioMap.set(metricKey, {
+      title: safeText(scenario.title, `Focus on ${metricLabel}`),
+      metric_key: metricKey,
+      current: safeText(scenario.current, "Progress feels inconsistent in this area."),
+      improved: safeText(scenario.improved, "A more stable, repeatable pattern is established."),
+      impact: safeText(scenario.impact, "You gain consistency, confidence, and faster progress."),
+    });
+  }
+
+  const scenarioList: Array<{ title: string; metric_key: MetricKey; current: string; improved: string; impact: string }> = [];
+  for (const scenario of scenarioMap.values()) {
+    scenarioList.push(scenario);
+  }
+
+  for (const fallback of fallbackScenarios) {
+    if (scenarioList.length >= 3) break;
+    if (!scenarioMap.has(fallback.metric_key)) {
+      scenarioList.push({
+        title: fallback.title,
+        metric_key: fallback.metric_key,
+        current: fallback.current,
+        improved: fallback.improved,
+        impact: fallback.impact,
+      });
+    }
+  }
+
+  if (scenarioList.length > 5) {
+    scenarioList.splice(5);
+  }
+
+  const defaultRoadmapActions = [
+    {
+      line1: "Bloodwork + physical assessment to establish internal markers and baselines.",
+      line2: "Identify mechanical restrictions and track key movement indicators.",
+    },
+    {
+      line1: "Review results, adjust nutrition if needed, and retest key movements.",
+      line2: "Clarify the main bottleneck and how it affects daily activity.",
+    },
+    {
+      line1: "Begin gradual ramp up with controlled loading and recovery-informed intensity.",
+      line2: "Build capacity without triggering the same breakdown patterns.",
+    },
+    {
+      line1: "Reassess movement patterns and adjust the program based on feedback.",
+      line2: "Tighten recovery strategies to protect training consistency.",
+    },
+    {
+      line1: "Track metrics weekly, integrate interventions, and educate on triggers.",
+      line2: "Use reassessments to keep progress compounding over time.",
+    },
+  ];
+
+  const roadmapCandidates = Array.isArray(parsed.roadmap_actions) ? parsed.roadmap_actions : [];
+  const roadmapActions = defaultRoadmapActions.map((fallback, index) => {
+    const candidate = roadmapCandidates[index];
+    if (!candidate || typeof candidate !== "object") {
+      return fallback;
+    }
+    const line1 = safeText(candidate.line1, fallback.line1);
+    const line2 = safeText(candidate.line2, fallback.line2);
+    return { line1, line2 };
+  });
 
   const scoreValues = METRICS.map((metric) => formatScore(metrics[metric.key]));
   const currentTotal = scoreValues.reduce((sum, value) => sum + value, 0);
@@ -234,66 +367,49 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     return `${metric.emoji} ${metric.label} | ${currentScore}/5 | ${targetScore}/5 | ${quickTake}`;
   }).join("\n");
 
-  const scenarioOrder = [
-    { focus: "Body Reliability", title: "Improve Body Reliability", key: "bss" },
-    { focus: "System Integration", title: "Integrate Past Interventions", key: "sis" },
-    { focus: "Effort vs Recovery Balance", title: "Optimize Recovery", key: "lrb" },
-  ] as const;
-
-  const scenarioBlocks = scenarioOrder.map((entry, index) => {
-    const scenario = scenarioMap.get(entry.focus);
-    const currentScore = formatScore(metrics[entry.key]);
-    const targetScore = getTargetScore(metrics[entry.key]);
-    const currentLine = safeText(scenario?.current, "Progress feels inconsistent in this area.");
-    const improvedLine = safeText(scenario?.improved, "A more stable, repeatable pattern is established.");
-    const impactLine = safeText(scenario?.impact, "You gain consistency, confidence, and faster progress.");
+  const scenarioBlocks = scenarioList.map((scenario, index) => {
+    const currentScore = formatScore(metrics[scenario.metric_key]);
+    const targetScore = getTargetScore(metrics[scenario.metric_key]);
     return [
-      `Scenario ${index + 1}: ${entry.title} (${currentScore} -> ${targetScore})`,
-      `- Current: ${currentLine}`,
-      `- Improved: ${improvedLine}`,
-      `- Impact: ${impactLine}`,
+      `Scenario ${index + 1}: ${scenario.title} (${currentScore} -> ${targetScore})`,
+      `- **Current:** ${scenario.current}`,
+      `- **Improved:** ${scenario.improved}`,
+      `- **Impact:** ${scenario.impact}`,
     ].join("\n");
   }).join("\n");
 
+  const roadmapHeader = "Week | Focus | Key Actions\n--- | --- | ---";
   const roadmapRows = [
-    ["Week 1-2", "Baseline Assessment", sanitizeTableCell(roadmapActions[0])],
-    ["Week 1-2", "Systems & Movement Remap", sanitizeTableCell(roadmapActions[1])],
-    ["Week 2-3", "Integrated Strength & Conditioning", sanitizeTableCell(roadmapActions[2])],
-    ["Week 5", "Feedback & Progress Check", sanitizeTableCell(roadmapActions[3])],
-    ["Ongoing", "Continuous Loop", sanitizeTableCell(roadmapActions[4])],
+    ["Week 1-2", "Baseline Assessment", roadmapActions[0]],
+    ["Week 1-2", "Systems & Movement Remap", roadmapActions[1]],
+    ["Week 2-3", "Integrated Strength & Conditioning", roadmapActions[2]],
+    ["Week 5", "Feedback & Progress Check", roadmapActions[3]],
+    ["Ongoing", "Continuous Loop", roadmapActions[4]],
   ];
 
-  const roadmapHeader = "Week | Focus | Key Actions\n--- | --- | ---";
   const roadmapBody = roadmapRows
-    .map((row) => `${row[0]} | ${row[1]} | ${row[2]}`)
+    .map((row) => {
+      const line1 = sanitizeTableCell(row[2].line1);
+      const line2 = sanitizeTableCell(row[2].line2);
+      const keyActions = line2
+        ? `${line1} ${LINE_BREAK_TOKEN} ${line2}`
+        : line1;
+      return `${row[0]} | ${row[1]} | ${keyActions}`;
+    })
     .join("\n");
 
   const metricConnections = [
-    `${METRICS[0].emoji} ${METRICS[0].label} -> Safe progression in training`,
-    `${METRICS[1].emoji} ${METRICS[1].label} -> Reduced fatigue, consistent activity`,
-    `${METRICS[3].emoji} ${METRICS[3].label} -> Compounded progress across interventions`,
-    `${METRICS[2].emoji} ${METRICS[2].label} -> Focused effort on the most impactful area`,
-    `${METRICS[4].emoji} ${METRICS[4].label} -> Achievable pain-free movement goals`,
+    "🏃🏽Reliable Body → Safe progression in training",
+    "🍜Balanced Load & Recovery → Reduced fatigue, consistent activity",
+    "🌐Integrated System → Compounded progress across interventions",
+    "👺Clear Bottleneck → Focused effort on the most impactful area",
+    "🎯Aligned Outcome → Achievable pain-free movement goals",
   ];
 
   return [
     "Your Personalized Health & Performance Results",
     "1. Opening Thoughts",
-    "We hear you loud and clear.",
-    "",
-    `You're active - ${openingActivities}.`,
-    "",
-    `Yet ${openingLimitations} affect daily life and training.`,
-    "",
-    `Past interventions like ${openingInterventions} haven't compounded - leaving uncertainty about what truly works.`,
-    "",
-    `You want to ${openingGoals}.`,
-    "",
-    "Your current efforts may be siloed, and some domains of health and performance are missing key integration.",
-    "",
-    "This assessment captures your experiences, frustrations, and goals - giving us a clear picture of where your body, recovery, and performance systems intersect.",
-    "",
-    "This is where KYNARE's ecosystem can create reliable, measurable progress.",
+    openingParagraphs.join("\n\n"),
     "________________________________________",
     "2. Metrics That Directly Address Your Challenges",
     "Your 5 key metrics show where your body and performance systems need attention - and what improvement looks like.",
@@ -318,24 +434,23 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     "Step-by-step KYNARE Ecosystem plan:",
     roadmapHeader,
     roadmapBody,
-    `Outcome: By following this roadmap, you gain predictable performance, coordinated interventions, and measurable improvements - allowing you to keep ${openingActivities} without pain, while building long-term resilience.`,
-    "Next Steps: Book your first session to start the baseline assessment - your personalized roadmap begins here. Every step is tracked, measured, and aligned to your goals.",
+    "Outcome: By following this roadmap, you gain predictable performance, coordinated interventions, and measurable improvements - allowing you to train and move without pain, while building long-term resilience.",
     "________________________________________",
-    "6. Ready to Make Progress Predictable, Repeatable, and Accountable?",
-    "INTRO: KYNARE is not just a collection of services - it's a system designed to make your progress explainable, repeatable, and measurable.",
-    "ENTRY_POINTS_START:",
-    "1. Blood Assessment | establish your internal health baseline",
-    "2. KYNARE Onset (First Session + Physical Assessment) | understand your current body state and performance",
-    "ENTRY_POINTS_END:",
-    "CONSULTATION: During your consultation, we'll identify the most suitable entry point for you and show exactly where you sit in the KYNARE Ecosystem flow, so every action you take is informed and strategic.",
-    "SESSION_INCLUDES_START:",
-    "Personalized Client Profiling & Lifestyle Assessment",
-    "Personalized Roadmap to address your primary bottleneck",
-    "Suggested protocols to enhance movement, recovery, and nutrition",
-    "Internal/External Metrics tracking framework to monitor your progress",
-    "SESSION_INCLUDES_END:",
-    "CTA_LINK: https://kynare.com/timetable",
-    "CTA_TEXT: Don't let guesswork slow your progress - start your journey with KYNARE inside our ecosystem so you can feel, perform better & thrive daily!",
+    "Next Steps: Book your first session to start the baseline assessment - your personalized roadmap begins here. Every step is tracked, measured, and aligned to your goals.",
+    "Ready to Make Progress Predictable, Repeatable, and Accountable?",
+    "KYNARE is not just a collection of services - it's a system designed to make your progress explainable, repeatable, and measurable.",
+    "With two entry points:",
+    "1. Blood Assessment - establish your internal health baseline",
+    "2. KYNARE Onset (First Session + Physical Assessment) - understand your current body state and performance",
+    "During your consultation, we'll identify the most suitable entry point for you and show exactly where you sit in the KYNARE Ecosystem flow, so every action you take is informed and strategic.",
+    "Your First KYNARE Session Includes:",
+    "- Personalized Client Profiling & Lifestyle Assessment",
+    "- Personalized Roadmap to address your primary bottleneck",
+    "- Suggested protocols to enhance movement, recovery, and nutrition",
+    "- Internal/External Metrics tracking framework to monitor your progress",
+    "Schedule your first session today:",
+    "https://kynare.com/timetable",
+    "Don't let guesswork slow your progress - start your journey with KYNARE inside our ecosystem so you can feel, perform better & thrive daily!",
   ].join("\n");
 };
 
@@ -667,8 +782,7 @@ serve(async (req) => {
       input.primaryBottleneck,
       input.successCriteria,
       input.systemHistory,
-    ]
-      .join(" ")
+    ].join("\n")
       .trim();
 
     const keywords = extractKeywords(combinedInput);
@@ -693,6 +807,35 @@ serve(async (req) => {
       "Kynare assessment metrics, clusters, and sequencing rules",
     ].join("\n");
 
+    const metricsQuery = [
+      "Kynare metric definitions and scoring logic for Body State Stability, Load & Recovery Balance, Primary Constraint Clarity, System Integration, Outcome Alignment",
+      `Primary goal: ${input.primaryGoal}`,
+      `Current state: ${input.currentState}`,
+      `Body context: ${input.bodyContext || "Not provided"}`,
+      `Primary bottleneck: ${input.primaryBottleneck || "Not provided"}`,
+      `Success criteria: ${input.successCriteria || "Not provided"}`,
+      `System history: ${input.systemHistory || "Not provided"}`,
+    ].join("\n");
+
+    const scenariosQuery = [
+      "Kynare scenario patterns, risk flags, opportunity flags, and metric combinations",
+      `Primary goal: ${input.primaryGoal}`,
+      `Body context: ${input.bodyContext || "Not provided"}`,
+      `Primary bottleneck: ${input.primaryBottleneck || "Not provided"}`,
+      `Success criteria: ${input.successCriteria || "Not provided"}`,
+      `System history: ${input.systemHistory || "Not provided"}`,
+      `Interventions: ${interventions.join(", ") || "none"}`,
+    ].join("\n");
+
+    const sequencingQuery = [
+      "Kynare ecosystem components, outcome-based sequencing rules, and implementation roadmap",
+      `Primary goal: ${input.primaryGoal}`,
+      `Current state: ${input.currentState}`,
+      `Body context: ${input.bodyContext || "Not provided"}`,
+      `Primary bottleneck: ${input.primaryBottleneck || "Not provided"}`,
+      `Success criteria: ${input.successCriteria || "Not provided"}`,
+    ].join("\n");
+
     const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
       headers: {
@@ -701,7 +844,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: EMBEDDING_MODEL,
-        input: retrievalQuery,
+        input: [retrievalQuery, metricsQuery, scenariosQuery, sequencingQuery],
       }),
     });
 
@@ -711,38 +854,68 @@ serve(async (req) => {
     }
 
     const embeddingData = await embeddingResponse.json();
-    const queryEmbedding = embeddingData?.data?.[0]?.embedding;
+    const embeddings = embeddingData?.data?.map((entry: { embedding: number[] }) => entry.embedding) ?? [];
 
-    if (!queryEmbedding) {
-      throw new Error("Failed to generate query embedding");
+    if (embeddings.length < 4) {
+      throw new Error("Failed to generate query embeddings");
     }
 
-    const { data: matches, error: matchError } = await supabase.rpc("match_kynare_knowledge", {
-      p_version_id: activeVersion.id,
-      p_query_embedding: queryEmbedding,
-      p_match_count: KB_MATCH_COUNT,
-    });
+    const [generalEmbedding, metricsEmbedding, scenariosEmbedding, sequencingEmbedding] = embeddings;
 
-    if (matchError) {
-      throw new Error(`KB match error: ${matchError.message}`);
+    const fetchMatches = async (
+      embedding: number[],
+      count: number,
+      label: string,
+    ): Promise<KnowledgeChunk[]> => {
+      const { data, error } = await supabase.rpc("match_kynare_knowledge", {
+        p_version_id: activeVersion.id,
+        p_query_embedding: embedding,
+        p_match_count: count,
+      });
+
+      if (error) {
+        throw new Error(`KB match error (${label}): ${error.message}`);
+      }
+
+      return (data || []).map((match: KnowledgeChunk) => ({
+        id: match.id,
+        content: match.content,
+        section: match.section ?? null,
+        page: match.page ?? null,
+        similarity: match.similarity ?? null,
+      }));
+    };
+
+    const generalMatches = await fetchMatches(generalEmbedding, KB_MATCH_COUNT, "general");
+    const metricsMatches = await fetchMatches(metricsEmbedding, KB_METRICS_MATCH_COUNT, "metrics");
+    const scenarioMatches = await fetchMatches(scenariosEmbedding, KB_SCENARIOS_MATCH_COUNT, "scenarios");
+    const sequencingMatches = await fetchMatches(sequencingEmbedding, KB_SEQUENCING_MATCH_COUNT, "sequencing");
+
+    const formatKbContext = (chunks: KnowledgeChunk[], prefix: string) => {
+      if (!chunks.length) {
+        return "None";
+      }
+      return chunks
+        .map((chunk, index) => {
+          const label = `${prefix}-${index + 1}`;
+          const section = chunk.section ? `Section: ${chunk.section}` : "Section: Unspecified";
+          const page = chunk.page ? `Page: ${chunk.page}` : "Page: Unspecified";
+          return `[${label}] ${section} | ${page}
+${chunk.content}`;
+        })
+        .join("\n");
+    };
+
+    const kbContext = formatKbContext(generalMatches, "KB");
+    const kbMetricsContext = formatKbContext(metricsMatches, "KBM");
+    const kbScenariosContext = formatKbContext(scenarioMatches, "KBS");
+    const kbSequencingContext = formatKbContext(sequencingMatches, "KBQ");
+
+    const uniqueMatches = new Map<string, KnowledgeChunk>();
+    for (const match of [...generalMatches, ...metricsMatches, ...scenarioMatches, ...sequencingMatches]) {
+      uniqueMatches.set(match.id, match);
     }
-
-    const kbMatches: KnowledgeChunk[] = (matches || []).map((match: KnowledgeChunk) => ({
-      id: match.id,
-      content: match.content,
-      section: match.section ?? null,
-      page: match.page ?? null,
-      similarity: match.similarity ?? null,
-    }));
-
-    const kbContext = kbMatches
-      .map((chunk, index) => {
-        const label = `KB-${index + 1}`;
-        const section = chunk.section ? `Section: ${chunk.section}` : "Section: Unspecified";
-        const page = chunk.page ? `Page: ${chunk.page}` : "Page: Unspecified";
-        return `[${label}] ${section} | ${page}\n${chunk.content}`;
-      })
-      .join("\n\n");
+    const kbMatches = Array.from(uniqueMatches.values());
 
     // Sanitize all user inputs before embedding in prompt
     const sanitizedGoal = sanitizeForPrompt(input.primaryGoal);
@@ -752,7 +925,30 @@ serve(async (req) => {
     const sanitizedSuccess = sanitizeForPrompt(input.successCriteria);
     const sanitizedHistory = sanitizeForPrompt(input.systemHistory);
 
-    const userPrompt = `KYNARE_KB_EXCERPTS:\n${kbContext}\n\nUSER_INPUT:\n- Age: ${input.age}\n- Primary goal: ${sanitizedGoal}\n- Current state: ${sanitizedState}\n- Body context: ${sanitizedBody || "Not provided"}\n- Primary bottleneck: ${sanitizedBottleneck || "Not provided"}\n- Success criteria: ${sanitizedSuccess || "Not provided"}\n- System history: ${sanitizedHistory || "Not provided"}\n- Extracted keywords: ${keywords.join(", ") || "none"}\n- Body parts: ${bodyParts.join(", ") || "none"}\n- Prior interventions: ${interventions.join(", ") || "none"}\n- Signal hints: has_outcome=${hasOutcome}; has_clear_bottleneck=${hasClearBottleneck}; interventions_count=${interventions.length}`;
+    const userPrompt = `KYNARE_KB_EXCERPTS:
+${kbContext}
+
+KYNARE_KB_METRICS_EXCERPTS:
+${kbMetricsContext}
+
+KYNARE_KB_SCENARIOS_EXCERPTS:
+${kbScenariosContext}
+
+KYNARE_KB_SEQUENCING_EXCERPTS:
+${kbSequencingContext}
+
+USER_INPUT:
+- Age: ${input.age}
+- Primary goal: ${sanitizedGoal}
+- Current state: ${sanitizedState}
+- Body context: ${sanitizedBody || "Not provided"}
+- Primary bottleneck: ${sanitizedBottleneck || "Not provided"}
+- Success criteria: ${sanitizedSuccess || "Not provided"}
+- System history: ${sanitizedHistory || "Not provided"}
+- Extracted keywords: ${keywords.join(", ") || "none"}
+- Body parts: ${bodyParts.join(", ") || "none"}
+- Prior interventions: ${interventions.join(", ") || "none"}
+- Signal hints: has_outcome=${hasOutcome}; has_clear_bottleneck=${hasClearBottleneck}; interventions_count=${interventions.length}`;
 
     console.log("Calling OpenAI chat completion...");
 
@@ -768,7 +964,7 @@ serve(async (req) => {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 1600,
+        max_tokens: 1800,
         temperature: 0.4,
         response_format: { type: "json_object" },
       }),

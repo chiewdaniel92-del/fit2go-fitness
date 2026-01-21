@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { trackEvent } from "@/lib/analytics";
 import kynareLogo from "@/assets/kynare-logo-orange.png";
-import { useMemo } from "react";
+import { useMemo, Children, Fragment, type ReactNode } from "react";
 
 interface ResultsStepProps {
   assessment: string;
@@ -24,6 +24,29 @@ interface MetricsData {
   whatThisMeans: { current: string; target: string } | null;
   cleanedContent: string;
 }
+
+const LINE_BREAK_TOKEN = "[[BR]]";
+
+const renderTableCell = (children: ReactNode) => {
+  const childArray = Children.toArray(children);
+  if (childArray.every((child) => typeof child === "string")) {
+    const text = childArray.join("");
+    if (text.includes(LINE_BREAK_TOKEN)) {
+      const parts = text
+        .split(LINE_BREAK_TOKEN)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      return parts.map((part, index) => (
+        <Fragment key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 && <br />}
+        </Fragment>
+      ));
+    }
+  }
+  return children;
+};
 
 // Pre-process metrics section to extract Overall Score and "What this means for you"
 function preprocessMetricsSection(content: string): MetricsData {
@@ -132,7 +155,7 @@ function preprocessConnectSection(content: string): ConnectSectionData {
 
 interface ProgressionScenario {
   title: string;
-  bullets: string[];
+  bullets: Array<{ label?: string; text: string }>;
 }
 
 interface ProgressionSectionData {
@@ -173,18 +196,29 @@ function preprocessProgressionSection(content: string): ProgressionSectionData {
     const titleLine = lines[0].trim();
     const bulletLines = lines.slice(1);
     
-    const bullets: string[] = [];
+    const bullets: Array<{ label?: string; text: string }> = [];
     for (const line of bulletLines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      
-      // Match bullet format: "●text", "● text", "- text", "* text"
-      const bulletMatch = trimmed.match(/^[●\-\*]\s*(.+)$/);
-      if (bulletMatch && bulletMatch[1]) {
-        bullets.push(bulletMatch[1].trim());
-      } else if (trimmed.length > 0 && !trimmed.match(/^Scenario\s+\d+:/i)) {
-        // Plain text that's not a scenario header
-        bullets.push(trimmed);
+
+      // Match bullet format: "- text", "* text", or bullet glyphs
+      const bulletMatch = trimmed.match(/^[•●\-*]\s*(.+)$/);
+      const rawText = bulletMatch?.[1]?.trim() ?? trimmed;
+      if (!rawText || trimmed.match(/^Scenario\s+\d+:/i)) {
+        continue;
+      }
+
+      const labelMatch = rawText.match(/^\*{0,2}\s*(Current|Improved|Impact)\s*\*{0,2}\s*:\s*(.+)$/i);
+
+      if (labelMatch) {
+        const cleanedText = labelMatch[2]
+          .trim()
+          .replace(/^\*+\s*/, "")
+          .replace(/\*+$/, "")
+          .replace(/\*\*/g, "");
+        bullets.push({ label: labelMatch[1], text: cleanedText });
+      } else {
+        bullets.push({ text: rawText.replace(/\*\*/g, "") });
       }
     }
     
@@ -354,6 +388,7 @@ function parseAssessmentIntoSections(assessment: string): Section[] {
 
 function SectionCard({ section, isNextSteps = false }: { section: Section; isNextSteps?: boolean }) {
   const isNextStepsSection = isNextSteps || section.title.toLowerCase().includes('next step');
+  const isOpeningSection = section.title.toLowerCase().includes('opening thoughts');
   const isProgressionSection = section.title.toLowerCase().includes('progression') || 
                                section.title.toLowerCase().includes('scenarios');
   const isMetricsSection = section.title.toLowerCase().includes('metrics') && 
@@ -404,6 +439,19 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     }
     return null;
   }, [section.content, isCtaSection]);
+
+  const openingContent = useMemo(() => {
+    if (!isOpeningSection) return section.content;
+    const blocks = section.content.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+    const paragraphs = blocks.length > 1
+      ? blocks
+      : section.content.split(/\n+/).map((block) => block.trim()).filter(Boolean);
+    const cappedParagraphs = paragraphs.slice(0, 3).map((paragraph) => {
+      const sentences = paragraph.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [paragraph];
+      return sentences.slice(0, 2).join(" ").trim();
+    });
+    return cappedParagraphs.join("\n\n");
+  }, [section.content, isOpeningSection]);
   
   const markdownComponents = {
     h1: ({ children }: { children?: React.ReactNode }) => (
@@ -474,13 +522,23 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
         <span className="flex-1">{children}</span>
       </li>
     ),
-    table: ({ children }: { children?: React.ReactNode }) => (
+    table: ({ children, node }: { children?: React.ReactNode; node?: any }) => {
+      const headerRow = node?.children?.find((child: any) => child.tagName === "thead")?.children?.[0];
+      const bodyRow = node?.children?.find((child: any) => child.tagName === "tbody")?.children?.[0];
+      const firstRow = headerRow ?? bodyRow;
+      const columnCount = firstRow?.children?.length ?? 0;
+      const dataColumns = columnCount ? String(columnCount) : undefined;
+      return (
       <div className="w-full overflow-x-auto rounded-xl border border-primary/30 my-4">
-        <table className={`w-full border-collapse text-left text-sm min-w-[400px] ${isRoadmapSection ? 'roadmap-table' : ''}`}>
+        <table
+          data-columns={dataColumns}
+          className={`w-full border-collapse text-left text-sm min-w-[400px] ${isRoadmapSection ? 'roadmap-table' : ''}`}
+        >
           {children}
         </table>
       </div>
-    ),
+      );
+    },
     thead: ({ children }: { children?: React.ReactNode }) => (
       <thead className="bg-primary/15 border-b-2 border-primary/30">
         {children}
@@ -506,7 +564,7 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     },
     td: ({ children, node }: { children?: React.ReactNode; node?: any }) => (
       <td className="px-4 py-3 align-top text-foreground/90 border-l-2 border-l-transparent first:border-l-primary/30 first:w-20">
-        {children}
+        {renderTableCell(children)}
       </td>
     ),
     blockquote: ({ children }: { children?: React.ReactNode }) => (
@@ -659,7 +717,16 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                     {scenario.bullets.map((bullet, bulletIdx) => (
                       <li key={bulletIdx} className="leading-relaxed flex items-start gap-3">
                         <span className="text-primary mt-1.5 text-xs">●</span>
-                        <span>{bullet}</span>
+                        <span>
+                          {bullet.label ? (
+                            <>
+                              <strong className="text-primary font-semibold">{bullet.label}:</strong>{" "}
+                              {bullet.text}
+                            </>
+                          ) : (
+                            bullet.text
+                          )}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -796,7 +863,7 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
             remarkPlugins={[remarkGfm]}
             components={markdownComponents}
           >
-            {section.content}
+            {openingContent}
           </ReactMarkdown>
         )}
       </div>

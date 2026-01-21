@@ -69,6 +69,27 @@
   }
 }
 
+@layer components {
+  table[data-columns="3"] {
+    table-layout: fixed;
+  }
+
+  table[data-columns="3"] th:nth-child(1),
+  table[data-columns="3"] td:nth-child(1) {
+    width: 18%;
+  }
+
+  table[data-columns="3"] th:nth-child(2),
+  table[data-columns="3"] td:nth-child(2) {
+    width: 22%;
+  }
+
+  table[data-columns="3"] th:nth-child(3),
+  table[data-columns="3"] td:nth-child(3) {
+    width: 60%;
+  }
+}
+
 @layer utilities {
   .animate-fade-in {
     animation: fade-in 0.4s ease-out forwards;

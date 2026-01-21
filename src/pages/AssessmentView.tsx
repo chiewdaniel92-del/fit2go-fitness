@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, Children, Fragment, type ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,29 @@ import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { trackEvent } from "@/lib/analytics";
+
+const LINE_BREAK_TOKEN = "[[BR]]";
+
+const renderTableCell = (children: ReactNode) => {
+  const childArray = Children.toArray(children);
+  if (childArray.every((child) => typeof child === "string")) {
+    const text = childArray.join("");
+    if (text.includes(LINE_BREAK_TOKEN)) {
+      const parts = text
+        .split(LINE_BREAK_TOKEN)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      return parts.map((part, index) => (
+        <Fragment key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 && <br />}
+        </Fragment>
+      ));
+    }
+  }
+  return children;
+};
 
 export default function AssessmentView() {
   const { accessToken } = useParams<{ accessToken: string }>();
@@ -145,13 +168,20 @@ export default function AssessmentView() {
                 li: ({ children }) => (
                   <li className="leading-relaxed">{children}</li>
                 ),
-                table: ({ children }) => (
+                table: ({ children, node }: { children?: React.ReactNode; node?: any }) => {
+                  const headerRow = node?.children?.find((child: any) => child.tagName === "thead")?.children?.[0];
+                  const bodyRow = node?.children?.find((child: any) => child.tagName === "tbody")?.children?.[0];
+                  const firstRow = headerRow ?? bodyRow;
+                  const columnCount = firstRow?.children?.length ?? 0;
+                  const dataColumns = columnCount ? String(columnCount) : undefined;
+                  return (
                   <div className="w-full overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-sm">
+                    <table data-columns={dataColumns} className="w-full border-collapse text-left text-sm">
                       {children}
                     </table>
                   </div>
-                ),
+                  );
+                },
                 thead: ({ children }) => (
                   <thead className="border-b border-border">
                     {children}
@@ -172,7 +202,7 @@ export default function AssessmentView() {
                 ),
                 td: ({ children }) => (
                   <td className="px-3 py-2 align-top text-foreground/90">
-                    {children}
+                    {renderTableCell(children)}
                   </td>
                 ),
               }}

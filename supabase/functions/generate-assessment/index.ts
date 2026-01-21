@@ -436,7 +436,6 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     roadmapHeader,
     roadmapBody,
     "Outcome: By following this roadmap, you gain predictable performance, coordinated interventions, and measurable improvements - allowing you to train and move without pain, while building long-term resilience.",
-    "________________________________________",
     "Next Steps: Book your first session to start the baseline assessment - your personalized roadmap begins here. Every step is tracked, measured, and aligned to your goals.",
     "________________________________________",
     "6. Ready to Make Progress Predictable, Repeatable, and Accountable?",

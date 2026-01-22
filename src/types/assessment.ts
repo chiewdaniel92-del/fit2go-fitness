@@ -35,6 +35,19 @@ export interface AssessmentRetrievalLog {
   page?: number | null;
 }
 
+export interface AssessmentEvidenceMapEntry {
+  kbRefs: string[];
+  inputRefs: string[];
+}
+
+export interface AssessmentEvidenceMap {
+  openingThoughts: AssessmentEvidenceMapEntry;
+  metrics: AssessmentEvidenceMapEntry;
+  connect: AssessmentEvidenceMapEntry;
+  scenarios: AssessmentEvidenceMapEntry;
+  roadmap: AssessmentEvidenceMapEntry;
+}
+
 export interface AssessmentGenerationResult {
   assessment: string;
   metrics: AssessmentMetrics;
@@ -43,6 +56,7 @@ export interface AssessmentGenerationResult {
   opportunityFlags: string[];
   kbVersionId: string | null;
   retrieval: AssessmentRetrievalLog[];
+  evidenceMap?: AssessmentEvidenceMap | null;
 }
 
 export type AssessmentStep = 

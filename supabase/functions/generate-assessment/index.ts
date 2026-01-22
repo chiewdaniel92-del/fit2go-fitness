@@ -41,6 +41,7 @@ Output must be valid JSON with these keys:
 - cascade_steps: array of exactly 4 strings
 - scenarios: array of 3-5 objects with fields {title, metric_key, current, improved, impact}
 - roadmap_actions: array of exactly 5 objects with fields {line1, line2}
+- evidence_map: object with keys {opening_thoughts, metrics, connect, scenarios, roadmap} and fields {kb_refs, input_refs}
 
 Use these KB blocks:
 - KYNARE_KB_EXCERPTS for overall framing and opening thoughts
@@ -52,22 +53,25 @@ Style constraints:
 - Use "you" language. Keep sentences concise and non-medical.
 - opening_paragraphs must be a summary of the whole report and motivate the user to read on; 2-3 paragraphs, 1-2 sentences each.
 - Each opening paragraph should include at least one specific insight from the user's inputs or KB, not generic filler.
-- quick_takes are 10-18 words each and should match the metric score.
-- summaries.current and summaries.target are one sentence each.
+- quick_takes are exactly two sentences: sentence 1 describes the user's current experience; sentence 2 describes what improves at target score.
+- quick_takes should mention the user's bottleneck or body area only when it truly fits.
+- summaries.current and summaries.target are one sentence each, summarizing the overall pattern across the five metrics (mention at least two metrics or their interaction).
 - cascade_steps must reference the user's inputs and priorities.
 - scenarios.title is 4-8 words. metric_key must be one of: bss, lrb, pcc, sis, oas.
 - scenarios.current/improved/impact are short phrases without leading labels or markdown (no **).
 - roadmap_actions.line1/line2 are 8-18 words each.
 - Use these metric names in phrasing: Body Reliability, Effort vs Recovery Balance, Primary Constraint Clarity, System Integration, Goal Readiness.
+- Use SPECIFICITY_ANCHORS exactly as provided. Each section must include at least one anchor. Opening Thoughts must include primary_bottleneck plus one other anchor.
+- For evidence_map, kb_refs must use the KB labels exactly as shown (e.g., KB-1, KBM-2). input_refs must use keys from SPECIFICITY_ANCHORS.
 
 Return JSON only. Do not return markdown.`;
 
 const CHAT_MODEL = "gpt-4o-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small";
-const KB_MATCH_COUNT = 10;
-const KB_METRICS_MATCH_COUNT = 6;
-const KB_SCENARIOS_MATCH_COUNT = 6;
-const KB_SEQUENCING_MATCH_COUNT = 6;
+const KB_MATCH_COUNT = 14;
+const KB_METRICS_MATCH_COUNT = 8;
+const KB_SCENARIOS_MATCH_COUNT = 8;
+const KB_SEQUENCING_MATCH_COUNT = 8;
 
 interface AssessmentInput {
   age: number;
@@ -122,6 +126,13 @@ interface AssessmentResult {
     line1: string;
     line2: string;
   }>;
+  evidence_map?: {
+    opening_thoughts: { kb_refs: string[]; input_refs: string[] };
+    metrics: { kb_refs: string[]; input_refs: string[] };
+    connect: { kb_refs: string[]; input_refs: string[] };
+    scenarios: { kb_refs: string[]; input_refs: string[] };
+    roadmap: { kb_refs: string[]; input_refs: string[] };
+  };
 }
 
 const clampScore = (value: number) => {
@@ -165,6 +176,28 @@ const safeParagraphs = (
   if (items.length < min) return fallback;
   return items.slice(0, max);
 };
+
+const splitSentences = (text: string) => {
+  if (!text) return [];
+  return text
+    .match(/[^.!?]+[.!?]+|[^.!?]+$/g)
+    ?.map((sentence) => sentence.trim())
+    .filter(Boolean) ?? [];
+};
+
+const ensureTwoSentences = (text: string, fallback: string) => {
+  const sentences = splitSentences(text);
+  if (sentences.length >= 2) {
+    return `${sentences[0]} ${sentences[1]}`.trim();
+  }
+  const fallbackSentences = splitSentences(fallback);
+  if (fallbackSentences.length >= 2) {
+    return `${fallbackSentences[0]} ${fallbackSentences[1]}`.trim();
+  }
+  return text;
+};
+
+const hasTwoSentences = (text: string) => splitSentences(text).length >= 2;
 
 const sanitizeTableCell = (value: string) => value.replace(/\|/g, "/");
 const LINE_BREAK_TOKEN = "[[BR]]";
@@ -220,6 +253,14 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     pcc: "",
     sis: "",
     oas: "",
+  };
+
+  const explanationFallbacks: Record<MetricKey, string> = {
+    bss: "Right now, body reliability feels inconsistent, limiting confidence and daily movement quality. At target, your body responds predictably so training can progress without flare-ups.",
+    lrb: "Right now, training load outpaces recovery, so fatigue and discomfort build quickly. At target, load and recovery stay balanced, keeping energy stable across sessions.",
+    pcc: "Right now, the main constraint is partly clear, leaving uncertainty about what to prioritize. At target, the bottleneck is precise, so effort goes to the highest-impact fix.",
+    sis: "Right now, interventions are fragmented, so gains fail to compound between changes. At target, systems work together, reinforcing progress at each step.",
+    oas: "Right now, the goal is clear but the support system is not yet stable. At target, the system backs the goal with steady, measurable progress.",
   };
 
   const cascadeSteps = safeList(parsed.cascade_steps, 4, [
@@ -354,17 +395,16 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
   const targetScores = METRICS.map((metric) => getTargetScore(metrics[metric.key]));
   const targetTotal = targetScores.reduce((sum, value) => sum + value, 0);
 
-  const tableHeader = "Metric | Current | Target | Quick Take (Read in 5s)\n--- | --- | --- | ---";
+  const tableHeader = "Metric | Current | Target | What This Means\n--- | --- | --- | ---";
   const tableRows = METRICS.map((metric) => {
     const currentScore = formatScore(metrics[metric.key]);
     const targetScore = getTargetScore(metrics[metric.key]);
-    const quickTake = sanitizeTableCell(
-      safeText(
-        quickTakes[metric.key],
-        "Aligned with your current score and the next step toward reliability.",
-      ),
+    const explanationFallback = explanationFallbacks[metric.key];
+    const explanationRaw = safeText(quickTakes[metric.key], explanationFallback);
+    const explanation = sanitizeTableCell(
+      ensureTwoSentences(explanationRaw, explanationFallback),
     );
-    return `${metric.emoji} ${metric.label} | ${currentScore}/5 | ${targetScore}/5 | ${quickTake}`;
+    return `${metric.emoji} ${metric.label} | ${currentScore}/5 | ${targetScore}/5 | ${explanation}`;
   }).join("\n");
 
   const scenarioBlocks = scenarioList.map((scenario, index) => {
@@ -417,7 +457,7 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     tableHeader,
     tableRows,
     `Overall Score: ${currentTotal}/25 -> Target: ${formatTargetRange(targetTotal)}`,
-    "What this means for you:",
+    "Your System Summary:",
     `- Current: ${currentSummary}`,
     `- Target: ${targetSummary}`,
     "________________________________________",
@@ -614,6 +654,108 @@ const findMatches = (text: string, terms: string[]) => {
   return matches;
 };
 
+type SpecificityAnchor = { key: string; value: string };
+
+const buildSpecificityAnchors = (anchors: SpecificityAnchor[]) => {
+  const seen = new Set<string>();
+  return anchors
+    .map((anchor) => ({ key: anchor.key, value: anchor.value.trim() }))
+    .filter((anchor) => {
+      const normalized = anchor.value.toLowerCase();
+      if (!anchor.value || anchor.value.length < 4) return false;
+      if (normalized === "not provided" || normalized === "not specified") return false;
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+};
+
+const formatSpecificityAnchors = (anchors: SpecificityAnchor[]) => {
+  if (!anchors.length) {
+    return "None";
+  }
+  return anchors.map((anchor) => `- ${anchor.key}: "${anchor.value}"`).join("\n");
+};
+
+const textIncludesAnchor = (text: string, anchors: SpecificityAnchor[]) => {
+  const lower = text.toLowerCase();
+  return anchors.some((anchor) => lower.includes(anchor.value.toLowerCase()));
+};
+
+const getSpecificityFailures = (
+  parsed: AssessmentResult,
+  anchors: SpecificityAnchor[],
+) => {
+  if (!anchors.length) return [];
+
+  const failures: string[] = [];
+  const openingText = (parsed.opening_paragraphs ?? []).join(" ");
+  const metricsText = [
+    parsed.summaries?.current ?? "",
+    parsed.summaries?.target ?? "",
+    ...(Object.values(parsed.quick_takes ?? {}) as string[]),
+  ].join(" ");
+
+  const quickTakeValues = Object.values(parsed.quick_takes ?? {}) as string[];
+  if (quickTakeValues.length && quickTakeValues.some((value) => !hasTwoSentences(value))) {
+    failures.push("quick_takes_format");
+  }
+  const connectText = (parsed.cascade_steps ?? []).join(" ");
+  const scenariosText = (parsed.scenarios ?? [])
+    .map((scenario) =>
+      `${scenario.title} ${scenario.current} ${scenario.improved} ${scenario.impact}`,
+    )
+    .join(" ");
+  const roadmapText = (parsed.roadmap_actions ?? [])
+    .map((action) => `${action.line1} ${action.line2}`)
+    .join(" ");
+
+  const bottleneckAnchor = anchors.find((anchor) => anchor.key === "primary_bottleneck");
+
+  if (!textIncludesAnchor(openingText, anchors)) {
+    failures.push("opening_thoughts");
+  }
+  if (bottleneckAnchor && !openingText.toLowerCase().includes(bottleneckAnchor.value.toLowerCase())) {
+    failures.push("opening_thoughts_missing_bottleneck");
+  }
+  if (!textIncludesAnchor(metricsText, anchors)) {
+    failures.push("metrics");
+  }
+  if (!textIncludesAnchor(connectText, anchors)) {
+    failures.push("connect");
+  }
+  if (!textIncludesAnchor(scenariosText, anchors)) {
+    failures.push("scenarios");
+  }
+  if (!textIncludesAnchor(roadmapText, anchors)) {
+    failures.push("roadmap");
+  }
+
+  return failures;
+};
+
+const rerankMatches = (
+  matches: KnowledgeChunk[],
+  terms: string[],
+  limit: number,
+) => {
+  if (!matches.length) return [];
+  if (!terms.length) return matches.slice(0, limit);
+
+  const normalizedTerms = terms.map((term) => term.toLowerCase());
+  const scored = matches.map((match) => {
+    const contentLower = match.content.toLowerCase();
+    const termHits = normalizedTerms.filter((term) => contentLower.includes(term)).length;
+    const score = (match.similarity ?? 0) + termHits * 0.02;
+    return { match, score };
+  });
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((entry) => entry.match);
+};
+
 serve(async (req) => {
   // Handle CORS preflight
   const { allowed, corsHeaders } = enforceCors(req);
@@ -790,6 +932,7 @@ serve(async (req) => {
     const keywords = extractKeywords(combinedInput);
     const bodyParts = findMatches(combinedInput, BODY_PARTS);
     const interventions = findMatches(combinedInput, INTERVENTION_TERMS);
+    const signalTerms = [...keywords, ...bodyParts, ...interventions];
     const hasOutcome = input.successCriteria.trim().length >= 12;
     const hasClearBottleneck =
       input.primaryBottleneck.trim().length >= 8 &&
@@ -888,10 +1031,31 @@ serve(async (req) => {
       }));
     };
 
-    const generalMatches = await fetchMatches(generalEmbedding, KB_MATCH_COUNT, "general");
-    const metricsMatches = await fetchMatches(metricsEmbedding, KB_METRICS_MATCH_COUNT, "metrics");
-    const scenarioMatches = await fetchMatches(scenariosEmbedding, KB_SCENARIOS_MATCH_COUNT, "scenarios");
-    const sequencingMatches = await fetchMatches(sequencingEmbedding, KB_SEQUENCING_MATCH_COUNT, "sequencing");
+    const generalMatchesRaw = await fetchMatches(
+      generalEmbedding,
+      KB_MATCH_COUNT + 6,
+      "general",
+    );
+    const metricsMatchesRaw = await fetchMatches(
+      metricsEmbedding,
+      KB_METRICS_MATCH_COUNT + 4,
+      "metrics",
+    );
+    const scenarioMatchesRaw = await fetchMatches(
+      scenariosEmbedding,
+      KB_SCENARIOS_MATCH_COUNT + 4,
+      "scenarios",
+    );
+    const sequencingMatchesRaw = await fetchMatches(
+      sequencingEmbedding,
+      KB_SEQUENCING_MATCH_COUNT + 4,
+      "sequencing",
+    );
+
+    const generalMatches = rerankMatches(generalMatchesRaw, signalTerms, KB_MATCH_COUNT);
+    const metricsMatches = rerankMatches(metricsMatchesRaw, signalTerms, KB_METRICS_MATCH_COUNT);
+    const scenarioMatches = rerankMatches(scenarioMatchesRaw, signalTerms, KB_SCENARIOS_MATCH_COUNT);
+    const sequencingMatches = rerankMatches(sequencingMatchesRaw, signalTerms, KB_SEQUENCING_MATCH_COUNT);
 
     const formatKbContext = (chunks: KnowledgeChunk[], prefix: string) => {
       if (!chunks.length) {
@@ -927,6 +1091,16 @@ ${chunk.content}`;
     const sanitizedSuccess = sanitizeForPrompt(input.successCriteria);
     const sanitizedHistory = sanitizeForPrompt(input.systemHistory);
 
+    const specificityAnchors = buildSpecificityAnchors([
+      { key: "primary_goal", value: sanitizedGoal },
+      { key: "current_state", value: sanitizedState },
+      { key: "body_context", value: sanitizedBody },
+      { key: "primary_bottleneck", value: sanitizedBottleneck },
+      { key: "success_criteria", value: sanitizedSuccess },
+      { key: "system_history", value: sanitizedHistory },
+    ]);
+    const specificityAnchorsText = formatSpecificityAnchors(specificityAnchors);
+
     const userPrompt = `KYNARE_KB_EXCERPTS:
 ${kbContext}
 
@@ -950,7 +1124,10 @@ USER_INPUT:
 - Extracted keywords: ${keywords.join(", ") || "none"}
 - Body parts: ${bodyParts.join(", ") || "none"}
 - Prior interventions: ${interventions.join(", ") || "none"}
-- Signal hints: has_outcome=${hasOutcome}; has_clear_bottleneck=${hasClearBottleneck}; interventions_count=${interventions.length}`;
+- Signal hints: has_outcome=${hasOutcome}; has_clear_bottleneck=${hasClearBottleneck}; interventions_count=${interventions.length}
+
+SPECIFICITY_ANCHORS:
+${specificityAnchorsText}`;
 
     console.log("Calling OpenAI chat completion...");
 
@@ -1012,7 +1189,55 @@ USER_INPUT:
       throw new Error("Assessment response was not valid JSON");
     }
 
-    const scores = parsed.metric_scores || {};
+    let finalParsed = parsed;
+    const specificityFailures = getSpecificityFailures(parsed, specificityAnchors);
+    if (specificityFailures.length) {
+      const revisionPrompt = `REVISION_REQUEST:
+The previous JSON is missing required specificity for: ${specificityFailures.join(", ")}.
+Revise the JSON to include SPECIFICITY_ANCHORS exactly as written. Opening Thoughts must include primary_bottleneck plus one other anchor. Ensure quick_takes are exactly two sentences (current + target) and mention bottleneck/body area only when relevant.
+Return full JSON with the same keys and structure.
+
+SPECIFICITY_ANCHORS:
+${specificityAnchorsText}
+
+PREVIOUS_JSON:
+${content}`;
+
+      try {
+        const revisionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: CHAT_MODEL,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: revisionPrompt },
+            ],
+            max_tokens: 1800,
+            temperature: 0.4,
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (revisionResponse.ok) {
+          const revisionData = await revisionResponse.json();
+          const revisedContent = revisionData.choices?.[0]?.message?.content;
+          if (revisedContent) {
+            finalParsed = JSON.parse(revisedContent);
+          }
+        } else {
+          const revisionError = await revisionResponse.text();
+          console.warn("Specificity revision failed:", revisionResponse.status, revisionError);
+        }
+      } catch (revisionError) {
+        console.warn("Specificity revision error:", revisionError);
+      }
+    }
+
+    const scores = finalParsed.metric_scores || {};
     const metrics = {
       bss: clampScore(scores.bss),
       lrb: clampScore(scores.lrb),
@@ -1021,7 +1246,7 @@ USER_INPUT:
       oas: clampScore(scores.oas),
     };
 
-    const reportMarkdown = buildReportMarkdown(parsed, metrics);
+    const reportMarkdown = buildReportMarkdown(finalParsed, metrics);
 
     if (!reportMarkdown) {
       throw new Error("Assessment content missing");
@@ -1032,9 +1257,10 @@ USER_INPUT:
     return new Response(JSON.stringify({ 
       assessment: reportMarkdown,
       metrics,
-      cluster: parsed.cluster ?? null,
-      risk_flags: parsed.risk_flags ?? [],
-      opportunity_flags: parsed.opportunity_flags ?? [],
+      cluster: finalParsed.cluster ?? null,
+      risk_flags: finalParsed.risk_flags ?? [],
+      opportunity_flags: finalParsed.opportunity_flags ?? [],
+      evidence_map: finalParsed.evidence_map ?? null,
       kb_version_id: activeVersion.id,
       retrieval: kbMatches.map((chunk) => ({
         chunk_id: chunk.id,

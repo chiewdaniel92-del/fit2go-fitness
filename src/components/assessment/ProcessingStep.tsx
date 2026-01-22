@@ -87,6 +87,29 @@ export function ProcessingStep({ onComplete, onError, assessmentData, headerOffs
           throw new Error("Assessment content missing from response");
         }
 
+        const evidenceMap = data?.evidence_map ? {
+          openingThoughts: {
+            kbRefs: data.evidence_map.opening_thoughts?.kb_refs ?? [],
+            inputRefs: data.evidence_map.opening_thoughts?.input_refs ?? [],
+          },
+          metrics: {
+            kbRefs: data.evidence_map.metrics?.kb_refs ?? [],
+            inputRefs: data.evidence_map.metrics?.input_refs ?? [],
+          },
+          connect: {
+            kbRefs: data.evidence_map.connect?.kb_refs ?? [],
+            inputRefs: data.evidence_map.connect?.input_refs ?? [],
+          },
+          scenarios: {
+            kbRefs: data.evidence_map.scenarios?.kb_refs ?? [],
+            inputRefs: data.evidence_map.scenarios?.input_refs ?? [],
+          },
+          roadmap: {
+            kbRefs: data.evidence_map.roadmap?.kb_refs ?? [],
+            inputRefs: data.evidence_map.roadmap?.input_refs ?? [],
+          },
+        } : null;
+
         // Animate to 100% before completing
         setIsComplete(true);
         setProgress(100);
@@ -110,6 +133,7 @@ export function ProcessingStep({ onComplete, onError, assessmentData, headerOffs
             riskFlags: data.risk_flags ?? [],
             opportunityFlags: data.opportunity_flags ?? [],
             kbVersionId: data.kb_version_id ?? null,
+            evidenceMap,
             retrieval: (data.retrieval || []).map((entry: { chunk_id: string; similarity: number | null; section?: string | null; page?: number | null; }) => ({
               chunkId: entry.chunk_id,
               similarity: entry.similarity ?? null,

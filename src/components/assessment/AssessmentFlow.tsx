@@ -187,6 +187,7 @@ export function AssessmentFlow() {
       opportunityFlags: assessmentMeta.opportunityFlags,
       kbVersionId: assessmentMeta.kbVersionId,
       retrieval: assessmentMeta.retrieval,
+      evidenceMap: assessmentMeta.evidenceMap ?? null,
     };
   };
 
@@ -218,6 +219,7 @@ export function AssessmentFlow() {
           cluster: result.cluster,
           risk_flags: result.riskFlags,
           opportunity_flags: result.opportunityFlags,
+          evidence_map: result.evidenceMap ?? null,
         },
         p_kb_version_id: result.kbVersionId || null,
         p_bss_score: metrics?.bss ?? null,

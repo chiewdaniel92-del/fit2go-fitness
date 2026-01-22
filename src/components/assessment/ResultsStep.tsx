@@ -26,6 +26,7 @@ interface MetricsData {
 }
 
 const LINE_BREAK_TOKEN = "[[BR]]";
+const METRICS_SUMMARY_TITLE = "Your System Summary";
 
 const renderTableCell = (children: ReactNode) => {
   const childArray = Children.toArray(children);
@@ -48,7 +49,7 @@ const renderTableCell = (children: ReactNode) => {
   return children;
 };
 
-// Pre-process metrics section to extract Overall Score and "What this means for you"
+// Pre-process metrics section to extract Overall Score and "{METRICS_SUMMARY_TITLE}"
 function preprocessMetricsSection(content: string): MetricsData {
   let overallScore: { current: string; target: string } | null = null;
   let whatThisMeans: { current: string; target: string } | null = null;
@@ -61,7 +62,7 @@ function preprocessMetricsSection(content: string): MetricsData {
     overallScore = { current: scoreMatch[1], target: scoreMatch[2] };
   }
 
-  // Extract "What this means for you" with Current/Target bullets
+  // Extract "{METRICS_SUMMARY_TITLE}" with Current/Target bullets
   // Backend uses "- Current:" and "- Target:" format (dashes, not bullets ●)
   const currentMatch = content.match(/-\s*Current:\s*([^\n-]+)/i);
   const targetMatch = content.match(/-\s*Target:\s*([^\n-]+)(?![\d\/])/i);
@@ -77,8 +78,8 @@ function preprocessMetricsSection(content: string): MetricsData {
   cleanedContent = content
     // Remove Overall Score line (handles various formats)
     .replace(/Overall Score[:\s]*[\d]+\/[\d]+\s*(?:->|→|>)\s*Target[:\s]*[\d-]+\/[\d]+\s*\n?/gi, '')
-    // Remove "What this means for you:" header line
-    .replace(/What this means for you:?\s*\n?/gi, '')
+    // Remove metrics summary header line
+    .replace(/(What this means for you|Your System Summary):?\s*\n?/gi, '')
     // Remove "- Current: ..." line
     .replace(/-\s*Current:\s*[^\n-]+\n?/gi, '')
     // Remove "- Target: ..." line (but not table Target column which doesn't have dash prefix)
@@ -473,7 +474,7 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
     p: ({ children }: { children?: React.ReactNode }) => {
       const text = String(children);
       
-      // Skip rendering "Overall Score" and "What this means for you" in metrics section
+      // Skip rendering "Overall Score" and "{METRICS_SUMMARY_TITLE}" in metrics section
       // as they are rendered separately
       if (isMetricsSection) {
         if (text.includes('Overall Score:') && text.includes('Target:')) {
@@ -646,7 +647,7 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
               <div className="mt-6">
                 <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
                   <span className="w-1 h-5 bg-primary rounded-full" />
-                  What this means for you
+                  {METRICS_SUMMARY_TITLE}
                 </h3>
                 <ul className="space-y-2 text-foreground/90 list-none pl-0">
                   <li className="leading-relaxed flex items-start gap-3">

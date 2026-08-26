@@ -1,73 +1,95 @@
-# Welcome to your Lovable project
+# Fit2Go — Fitness Assessment Demo
 
-## Project info
+A standalone demo of the Fit2Go health & performance assessment: a short guided
+intake (typed + voice) that produces a personalized, KB-grounded report card.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Built with Vite, TypeScript, React, shadcn-ui, Tailwind CSS, and Supabase
+(Postgres + pgvector + Edge Functions).
 
-## How can I edit this code?
+## Prerequisites
 
-There are several ways of editing your application.
+- Node.js & npm ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- A Supabase project (this demo uses its own, separate from any other deployment)
+- An OpenAI API key (embeddings + assessment generation)
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Local setup
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Point the app at your Supabase project
+cp .env.example .env   # then fill in the three VITE_SUPABASE_* values
+
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Supabase setup
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Set `project_id` in `supabase/config.toml` to your project ref.
+2. Push the schema:
 
-**Use GitHub Codespaces**
+   ```sh
+   supabase link --project-ref <your-project-ref>
+   supabase db push
+   ```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+3. Ingest the knowledge base — see [dev_resources/kb_ingestion.md](dev_resources/kb_ingestion.md).
+4. Deploy the edge functions:
 
-## What technologies are used for this project?
+   ```sh
+   supabase functions deploy generate-assessment
+   supabase functions deploy transcribe-audio
+   supabase functions deploy send-assessment-email
+   ```
 
-This project is built with:
+### Edge function secrets
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Name | Required | Notes |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | yes | Embeddings, transcription, assessment generation |
+| `DEMO_MODE` | yes, for the demo | Set to exactly `true` to skip Turnstile bot verification. See note below. |
+| `ALLOWED_ORIGINS` | recommended | Comma-separated CORS allowlist for your demo host |
+| `RESEND_API_KEY` | for email | Resend API key |
+| `RESEND_FROM` | for email | e.g. `Fit2Go <noreply@yourdomain.com>` |
+| `SITE_URL` | for email | Public base URL of the demo |
+| `BOOKING_URL` | optional | Leave unset to keep booking CTAs inert (demo default) |
 
-## How can I deploy this project?
+### A note on `DEMO_MODE`
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+The edge functions verify a Cloudflare Turnstile token before doing any work.
+Turnstile needs a browser-side widget to mint that token and this build has
+none, so the check can never pass — every request would return
+`403 Verification failed`.
 
-## Can I connect a custom domain to my Lovable project?
+`DEMO_MODE=true` skips that check. It must be set to the exact string `true`;
+any other value (unset, empty, `1`, `yes`, a typo) leaves the normal
+fail-closed behaviour intact, so the check can never be disabled by accident.
 
-Yes, you can!
+**Do not set this in production.** With it on, the persistent rate limiting in
+`supabase/migrations/20260329000000_persistent_rate_limiting.sql` is the only
+abuse control left. To go to production properly, add a Turnstile widget to the
+frontend, pass the token to `supabase.functions.invoke`, set
+`TURNSTILE_SECRET_KEY`, and leave `DEMO_MODE` unset.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Branding
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Brand config lives in three places:
+
+- `src/lib/brand.ts` — brand name and the `BOOKING_URL` switch that controls
+  whether booking CTAs navigate anywhere. It is `null` for the demo, so every
+  CTA renders but stays inert.
+- `src/index.css` — design tokens (`--fit2go-*`, plus the shadcn token layer).
+  Theme is midnight navy `#141c2e` with electric lime `#c3f53c`.
+- `tailwind.config.ts` — the `fit2go` color group and font families
+  (Space Grotesk / Inter / IBM Plex Mono).
+
+Logo and social assets: `src/assets/fit2go-logo.svg`, `public/favicon.png`,
+`public/og-image.png`.
+
+## Build
+
+```sh
+npm run build     # production
+npm run build:dev # development mode build
+npm run lint
+```

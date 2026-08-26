@@ -4,7 +4,8 @@ import { Calendar, ArrowRight, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { trackEvent } from "@/lib/analytics";
-import kynareLogo from "@/assets/kynare-logo-orange.png";
+import fit2goLogo from "@/assets/fit2go-logo.svg";
+import { openBooking } from "@/lib/brand";
 import { useMemo, Children, Fragment, type ReactNode } from "react";
 
 interface ResultsStepProps {
@@ -820,7 +821,7 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
               <div className="mb-6">
                 <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                   <span className="w-1 h-5 bg-primary rounded-full" />
-                  Your First KYNARE Session Includes
+                  Your First Fit2Go Session Includes
                 </h3>
                 
                 {/* Checklist Items */}
@@ -841,16 +842,17 @@ function SectionCard({ section, isNextSteps = false }: { section: Section; isNex
                 <h3 className="text-xl font-bold text-foreground mb-4">
                   Schedule Your First Session Today
                 </h3>
-                <a
-                  href={ctaData.ctaLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
                   className="inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold px-8 py-3 rounded-full hover:bg-primary/90 transition-colors mb-4"
-                  onClick={() => trackEvent('cta_book_session_click', { location: 'section_6' })}
+                  onClick={() => {
+                    trackEvent('cta_book_session_click', { location: 'section_6' });
+                    openBooking();
+                  }}
                 >
                   <Calendar className="w-5 h-5" />
                   Book Now
-                </a>
+                </button>
                 {ctaData.ctaText && (
                   <p className="text-foreground/70 text-sm leading-relaxed mt-4">
                     {ctaData.ctaText}
@@ -880,8 +882,8 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
       {/* Header with Logo */}
       <div className="text-center mb-8">
         <img 
-          src={kynareLogo} 
-          alt="KYNARE" 
+          src={fit2goLogo} 
+          alt="Fit2Go" 
           className="w-12 h-12 mx-auto mb-4"
         />
         <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
@@ -893,7 +895,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
           <span className="h-px w-12 bg-primary/50" />
         </div>
         <p className="text-muted-foreground font-mono text-sm mt-3">
-          clinically guided | motion engineered
+          train smart | move daily | stay consistent
         </p>
       </div>
 
@@ -908,7 +910,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
               className="gap-2"
               onClick={() => {
                 trackEvent("mini_cta_clicked", { location: "after_section_1" });
-                window.open("https://kynare.com/timetable", "_blank");
+                openBooking();
               }}
             >
               <Calendar className="w-4 h-4" />
@@ -939,7 +941,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
                     className="gap-2"
                     onClick={() => {
                       trackEvent("mini_cta_clicked", { location: "after_section_1" });
-                      window.open("https://kynare.com/timetable", "_blank");
+                      openBooking();
                     }}
                   >
                     <Calendar className="w-4 h-4" />
@@ -967,7 +969,7 @@ export function ResultsStep({ assessment, onEmailCapture, onRetry }: ResultsStep
           size="lg"
           onClick={() => {
             trackEvent("booking_clicked", { source: "results_page" });
-            window.open("https://kynare.com/timetable", "_blank");
+            openBooking();
           }}
           className="gap-2"
         >

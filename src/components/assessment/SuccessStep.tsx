@@ -3,7 +3,7 @@ import { StepContainer } from "./StepContainer";
 import { Button } from "@/components/ui/button";
 import { Copy, ExternalLink, RotateCcw, Check } from "lucide-react";
 import { toast } from "sonner";
-import kynareLogo from "@/assets/kynare-logo-orange.png";
+import fit2goLogo from "@/assets/fit2go-logo.svg";
 
 interface SuccessStepProps {
   accessToken: string;
@@ -34,8 +34,8 @@ export function SuccessStep({ accessToken, onStartNew }: SuccessStepProps) {
     <StepContainer>
       <div className="text-center mb-8">
         <img 
-          src={kynareLogo} 
-          alt="KYNARE" 
+          src={fit2goLogo} 
+          alt="Fit2Go" 
           className="w-12 h-12 mx-auto mb-4"
         />
         <h2 className="text-2xl font-bold text-foreground mb-2">Assessment Saved!</h2>

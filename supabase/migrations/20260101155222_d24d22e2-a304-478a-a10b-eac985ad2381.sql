@@ -1,5 +1,5 @@
 -- =============================================
--- PHASE 1: DATABASE SETUP FOR KYNARE WELLNESS
+-- PHASE 1: DATABASE SETUP FOR FIT2GO
 -- =============================================
 
 -- 1. Assessment Options: Primary Goal

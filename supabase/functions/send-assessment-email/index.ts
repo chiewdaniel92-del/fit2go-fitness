@@ -9,6 +9,14 @@ import {
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
+// Use a verified custom domain in production. Set RESEND_FROM to e.g.
+// "Fit2Go <noreply@fit2go.com>" after verifying your domain in Resend.
+// See: https://resend.com/docs/dashboard/domains/introduction
+const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "Fit2Go <onboarding@resend.dev>";
+if (RESEND_FROM.includes("onboarding@resend.dev")) {
+  console.warn("[Email] Using Resend sandbox domain — emails may be blocked. Set RESEND_FROM to a verified custom domain.");
+}
+
 const RATE_LIMIT_MAX = Number.parseInt(
   Deno.env.get("RATE_LIMIT_MAX_EMAIL") ??
     Deno.env.get("RATE_LIMIT_MAX") ??
@@ -80,7 +88,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const ip = getClientIp(req);
     const rateKey = `send-assessment-email:${ip}`;
-    const rateLimit = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    const rateLimit = await checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateLimit.allowed) {
       return new Response(JSON.stringify({ error: "Too many requests" }), {
         status: 429,
@@ -133,9 +141,10 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Build the assessment URL
-    const baseUrl = Deno.env.get("SITE_URL") || "https://kynare.lovable.app";
+    const baseUrl = Deno.env.get("SITE_URL") || "http://localhost:5173";
     const assessmentUrl = `${baseUrl}/assessment/${accessToken}`;
-    const bookingUrl = "https://kynare.com/timetable";
+    // Standalone demo: no booking link unless BOOKING_URL is configured.
+    const bookingUrl = Deno.env.get("BOOKING_URL") ?? "";
 
     console.log("Sending email to:", email);
     console.log("Assessment URL:", assessmentUrl);
@@ -143,9 +152,9 @@ const handler = async (req: Request): Promise<Response> => {
     const safeSummary = escapeHtml(assessmentSummary);
 
     const emailResponse = await resend.emails.send({
-      from: "Kynare <onboarding@resend.dev>",
+      from: RESEND_FROM,
       to: [email],
-      subject: "Your Kynare Assessment Results",
+      subject: "Your Fit2Go Assessment Results",
       html: `
 <!DOCTYPE html>
 <html>
@@ -163,7 +172,7 @@ const handler = async (req: Request): Promise<Response> => {
           Your Personalized Assessment is Ready
         </h1>
         <p style="color: #71717a; font-size: 16px; margin: 0;">
-          Thank you for completing your Kynare wellness assessment
+          Thank you for completing your Fit2Go wellness assessment
         </p>
       </div>
 
@@ -184,19 +193,20 @@ const handler = async (req: Request): Promise<Response> => {
         </a>
       </div>
       
+      ${bookingUrl ? `
       <div style="text-align: center; margin-bottom: 32px;">
-        <a href="${bookingUrl}" style="display: inline-block; background-color: #f97316; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">
+        <a href="${bookingUrl}" style="display: inline-block; background-color: #c3f53c; color: #141c2e; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">
           Book Your First Visit
         </a>
-      </div>
+      </div>` : ""}
 
       <!-- Footer -->
       <div style="text-align: center; padding-top: 24px; border-top: 1px solid #e4e4e7;">
         <p style="color: #a1a1aa; font-size: 12px; margin: 0;">
-          This email was sent because you completed a wellness assessment at Kynare.
+          This email was sent because you completed a wellness assessment at Fit2Go.
         </p>
         <p style="color: #a1a1aa; font-size: 12px; margin: 8px 0 0 0;">
-          © ${new Date().getFullYear()} Kynare. All rights reserved.
+          © ${new Date().getFullYear()} Fit2Go. All rights reserved.
         </p>
       </div>
 

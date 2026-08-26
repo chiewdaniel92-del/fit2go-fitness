@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { StepContainer } from "./StepContainer";
 import { ArrowRight, CheckCircle } from "lucide-react";
 import { trackEvent } from "@/lib/analytics";
-import kynareLogo from "@/assets/kynare-logo-orange.png";
+import fit2goLogo from "@/assets/fit2go-logo.svg";
 
 interface WelcomeStepProps {
   onStart: () => void;
@@ -12,24 +12,24 @@ export function WelcomeStep({ onStart }: WelcomeStepProps) {
   return (
     <StepContainer className="flex flex-col items-center justify-center min-h-[70vh] text-center">
       <div className="mb-8 animate-slide-up" style={{ animationDelay: "0.1s" }}>
-        {/* Kynare Logo */}
+        {/* Fit2Go Logo */}
         <div className="mb-8">
           <img 
-            src={kynareLogo} 
-            alt="KYNARE" 
+            src={fit2goLogo} 
+            alt="Fit2Go" 
             className="w-20 h-20 mx-auto"
           />
         </div>
 
         {/* Assessment-focused headline */}
         <h1 className="font-mono text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight leading-tight mb-6">
-          <span className="text-foreground">The Kynare Ecosystem</span>
+          <span className="text-foreground">The Fit2Go System</span>
           <br />
           <span className="text-primary">Health & Performance Assessment</span>
         </h1>
 
         <div className="text-sm md:text-base text-muted-foreground max-w-lg mx-auto leading-relaxed space-y-2">
-          <p>Built on KYNARE's ecosystem-based assessment logic</p>
+          <p>Built on Fit2Go's system-based assessment logic</p>
           <p>We uncover your main bottleneck and how key factors interact</p>
           <p>So you know exactly where to focus for the greatest impact</p>
         </div>

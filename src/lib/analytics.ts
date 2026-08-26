@@ -3,7 +3,7 @@ import type { Json } from "@/integrations/supabase/types";
 
 // Get or create session ID
 const getSessionId = (): string => {
-  const key = "kynare_session_id";
+  const key = "fit2go_session_id";
   let sessionId = sessionStorage.getItem(key);
   
   if (!sessionId) {

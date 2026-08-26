@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { trackEvent } from "@/lib/analytics";
+import { openBooking } from "@/lib/brand";
 
 const LINE_BREAK_TOKEN = "[[BR]]";
 
@@ -218,7 +219,7 @@ export default function AssessmentView() {
             size="lg"
             onClick={() => {
               trackEvent("booking_clicked", { source: "assessment_view" });
-              window.open("https://kynare.com/timetable", "_blank");
+              openBooking();
             }}
             className="gap-2"
           >

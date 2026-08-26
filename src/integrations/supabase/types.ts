@@ -95,7 +95,7 @@ export type Database = {
             foreignKeyName: "assessment_kb_logs_kb_chunk_id_fkey"
             columns: ["kb_chunk_id"]
             isOneToOne: false
-            referencedRelation: "kynare_kb_chunks"
+            referencedRelation: "fit2go_kb_chunks"
             referencedColumns: ["id"]
           },
           {
@@ -285,7 +285,7 @@ export type Database = {
         }
         Relationships: []
       }
-      kynare_kb_chunks: {
+      fit2go_kb_chunks: {
         Row: {
           chunk_index: number
           content: string
@@ -321,7 +321,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "kynare_kb_chunks_version_id_fkey"
+            foreignKeyName: "fit2go_kb_chunks_version_id_fkey"
             columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "kb_versions"
@@ -369,7 +369,7 @@ export type Database = {
           primary_goal_label: string
         }[]
       }
-      match_kynare_knowledge: {
+      match_fit2go_knowledge: {
         Args: {
           p_match_count?: number
           p_query_embedding: string

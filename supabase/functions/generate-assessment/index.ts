@@ -24,7 +24,7 @@ const RATE_LIMIT_WINDOW_MS = Number.parseInt(
   10,
 );
 
-const SYSTEM_PROMPT = `You are the Kynare assessment engine. Use only the provided Kynare knowledge base excerpts and the user's inputs. Do not use outside knowledge. If the KB does not cover a topic, produce a minimal, safe assessment using only the user's input and KB principles without inventing facts.
+const SYSTEM_PROMPT = `You are the Fit2Go assessment engine. Use only the provided Fit2Go knowledge base excerpts and the user's inputs. Do not use outside knowledge. If the KB does not cover a topic, produce a minimal, safe assessment using only the user's input and KB principles without inventing facts.
 
 You are not a medical professional. Do not diagnose, prescribe, or use medical certainty.
 
@@ -44,15 +44,16 @@ Output must be valid JSON with these keys:
 - evidence_map: object with keys {opening_thoughts, metrics, connect, scenarios, roadmap} and fields {kb_refs, input_refs}
 
 Use these KB blocks:
-- KYNARE_KB_EXCERPTS for overall framing and opening thoughts
-- KYNARE_KB_METRICS_EXCERPTS for metric scores and quick takes
-- KYNARE_KB_SCENARIOS_EXCERPTS for scenarios and progression logic
-- KYNARE_KB_SEQUENCING_EXCERPTS for roadmap actions and sequencing rules
+- FIT2GO_KB_EXCERPTS for overall framing and opening thoughts
+- FIT2GO_KB_METRICS_EXCERPTS for metric scores and quick takes
+- FIT2GO_KB_SCENARIOS_EXCERPTS for scenarios and progression logic
+- FIT2GO_KB_SEQUENCING_EXCERPTS for roadmap actions and sequencing rules
 
 Style constraints:
 - Use "you" language. Keep sentences concise and non-medical.
 - opening_paragraphs must be a summary of the whole report and motivate the user to read on; 2-3 paragraphs, 1-2 sentences each.
 - Each opening paragraph should include at least one specific insight from the user's inputs or KB, not generic filler.
+- Opening Thoughts must include the numeric score gap formatted like "12/25 -> 20-21/25" based on metric_scores, mention 1-2 metric names most relevant to the goal (use exact names), and implicitly reference the metrics table, scenarios, and roadmap (no section numbers). Focus on current state + system gap; avoid past interventions unless directly relevant.
 - quick_takes are exactly two sentences: sentence 1 describes the user's current experience; sentence 2 describes what improves at target score.
 - quick_takes should mention the user's bottleneck or body area only when it truly fits.
 - summaries.current and summaries.target are one sentence each, summarizing the overall pattern across the five metrics (mention at least two metrics or their interaction).
@@ -228,11 +229,137 @@ const formatTargetRange = (targetLow: number) => {
 type MetricKey = (typeof METRICS)[number]["key"];
 const METRIC_KEY_SET = new Set<MetricKey>(["bss", "lrb", "pcc", "sis", "oas"]);
 
-const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey, number | null>) => {
+const METRIC_KEYWORDS: Record<MetricKey, string[]> = {
+  bss: [
+    "pain",
+    "discomfort",
+    "flare",
+    "flare-up",
+    "unstable",
+    "stability",
+    "reliability",
+    "consistent",
+    "tendon",
+    "knee",
+    "shoulder",
+    "hip",
+    "ankle",
+    "back",
+    "neck",
+  ],
+  lrb: [
+    "fatigue",
+    "recovery",
+    "rest",
+    "sleep",
+    "overload",
+    "burnout",
+    "tired",
+    "energy",
+    "load",
+  ],
+  pcc: [
+    "bottleneck",
+    "constraint",
+    "unclear",
+    "not sure",
+    "confused",
+    "priority",
+    "focus",
+  ],
+  sis: [
+    "fragmented",
+    "coordination",
+    "integrate",
+    "system",
+    "intervention",
+    "protocol",
+    "plan",
+    "silo",
+    "together",
+  ],
+  oas: [
+    "goal",
+    "timeline",
+    "performance",
+    "readiness",
+    "return",
+    "compete",
+    "race",
+    "achieve",
+  ],
+};
+
+const getScoreSummary = (metrics: Record<MetricKey, number | null>) => {
+  const scoreValues = METRICS.map((metric) => formatScore(metrics[metric.key]));
+  const currentTotal = scoreValues.reduce((sum, value) => sum + value, 0);
+  const targetScores = METRICS.map((metric) => getTargetScore(metrics[metric.key]));
+  const targetTotal = targetScores.reduce((sum, value) => sum + value, 0);
+  return {
+    currentTotal,
+    targetTotal,
+    targetRangeText: formatTargetRange(targetTotal),
+  };
+};
+
+const getLowestMetricLabels = (
+  metrics: Record<MetricKey, number | null>,
+  count: number,
+) => {
+  const ranked = METRICS.map((metric) => ({
+    metric,
+    score: formatScore(metrics[metric.key]),
+  }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, count);
+  return ranked.map((entry) => entry.metric.label);
+};
+
+const pickRelevantMetricLabels = (
+  input: AssessmentInput,
+  metrics?: Record<MetricKey, number | null> | null,
+) => {
+  const combined = [
+    input.primaryGoal,
+    input.currentState,
+    input.bodyContext,
+    input.primaryBottleneck,
+    input.successCriteria,
+    input.systemHistory,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  const scored = METRICS.map((metric) => {
+    const keywords = METRIC_KEYWORDS[metric.key] ?? [];
+    const hits = keywords.filter((term) => combined.includes(term)).length;
+    return { metric, hits };
+  });
+
+  const withHits = scored.filter((entry) => entry.hits > 0);
+  if (withHits.length) {
+    return withHits
+      .sort((a, b) => b.hits - a.hits)
+      .slice(0, 2)
+      .map((entry) => entry.metric.label);
+  }
+
+  if (metrics) {
+    return getLowestMetricLabels(metrics, 2);
+  }
+
+  return METRICS.slice(0, 2).map((metric) => metric.label);
+};
+
+const buildReportMarkdown = (
+  parsed: AssessmentResult,
+  metrics: Record<MetricKey, number | null>,
+) => {
+  const scoreSummary = getScoreSummary(metrics);
+  const fallbackMetricLabels = getLowestMetricLabels(metrics, 2);
   const fallbackOpening = [
-    "Your inputs point to a clear bottleneck that is disrupting confidence and consistency under load. This report links those signals to specific KYNARE metrics so the path forward is no longer guesswork.",
-    "You are not far off your goal, but fragmented effort and recovery gaps are slowing momentum. Each section explains exactly what is holding you back and how to sequence the fixes.",
-    "This is a full-system view of your body, recovery, and performance, not a generic checklist. Read on to see the precise levers that will create reliable, measurable progress.",
+    `Your current limitations are reducing consistency and show up most in ${fallbackMetricLabels.join(" and ")}. The score gap (${scoreSummary.currentTotal}/25 -> ${scoreSummary.targetRangeText}) explains why progress feels slower than expected.`,
+    "The metrics table shows where your system is under-supported today, and the scenarios and roadmap show how those scores shift as you rebuild capacity.",
   ];
 
   const openingParagraphs = safeParagraphs(parsed.opening_paragraphs, 2, 3, fallbackOpening);
@@ -390,11 +517,6 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     return { line1, line2 };
   });
 
-  const scoreValues = METRICS.map((metric) => formatScore(metrics[metric.key]));
-  const currentTotal = scoreValues.reduce((sum, value) => sum + value, 0);
-  const targetScores = METRICS.map((metric) => getTargetScore(metrics[metric.key]));
-  const targetTotal = targetScores.reduce((sum, value) => sum + value, 0);
-
   const tableHeader = "Metric | Current | Target | What This Means\n--- | --- | --- | ---";
   const tableRows = METRICS.map((metric) => {
     const currentScore = formatScore(metrics[metric.key]);
@@ -456,7 +578,7 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     "Your 5 key metrics show where your body and performance systems need attention - and what improvement looks like.",
     tableHeader,
     tableRows,
-    `Overall Score: ${currentTotal}/25 -> Target: ${formatTargetRange(targetTotal)}`,
+    `Overall Score: ${scoreSummary.currentTotal}/25 -> Target: ${scoreSummary.targetRangeText}`,
     "Your System Summary:",
     `- Current: ${currentSummary}`,
     `- Target: ${targetSummary}`,
@@ -472,27 +594,29 @@ const buildReportMarkdown = (parsed: AssessmentResult, metrics: Record<MetricKey
     scenarioBlocks,
     "________________________________________",
     "5. Implementation Roadmap",
-    "Step-by-step KYNARE Ecosystem plan:",
+    "Step-by-step Fit2Go System plan:",
     roadmapHeader,
     roadmapBody,
     "Outcome: By following this roadmap, you gain predictable performance, coordinated interventions, and measurable improvements - allowing you to train and move without pain, while building long-term resilience.",
     "Next Steps: Book your first session to start the baseline assessment - your personalized roadmap begins here. Every step is tracked, measured, and aligned to your goals.",
     "________________________________________",
     "6. Ready to Make Progress Predictable, Repeatable, and Accountable?",
-    "INTRO: KYNARE is not just a collection of services - it's a system designed to make your progress explainable, repeatable, and measurable.",
+    "INTRO: Fit2Go is not just a collection of services - it's a system designed to make your progress explainable, repeatable, and measurable.",
     "ENTRY_POINTS_START:",
     "1. Blood Assessment | Establish your internal health baseline",
-    "2. KYNARE Onset (First Session + Physical Assessment) | Understand your current body state and performance",
+    "2. Fit2Go Onset (First Session + Physical Assessment) | Understand your current body state and performance",
     "ENTRY_POINTS_END:",
-    "CONSULTATION: During your consultation, we'll identify the most suitable entry point for you and show exactly where you sit in the KYNARE Ecosystem flow, so every action you take is informed and strategic.",
+    "CONSULTATION: During your consultation, we'll identify the most suitable entry point for you and show exactly where you sit in the Fit2Go System flow, so every action you take is informed and strategic.",
     "SESSION_INCLUDES_START:",
     "Personalized Client Profiling & Lifestyle Assessment",
     "Personalized Roadmap to address your primary bottleneck",
     "Suggested protocols to enhance movement, recovery, and nutrition",
     "Internal/External Metrics tracking framework to monitor your progress",
     "SESSION_INCLUDES_END:",
-    "CTA_LINK: https://kynare.com/timetable",
-    "CTA_TEXT: Don't let guesswork slow your progress - start your journey with KYNARE inside our ecosystem so you can feel, perform better & thrive daily!",
+    // Standalone demo: CTA renders but does not navigate. Replace with a real
+    // scheduling URL (and set BOOKING_URL in src/lib/brand.ts) to go live.
+    "CTA_LINK: #",
+    "CTA_TEXT: Don't let guesswork slow your progress - start your journey with Fit2Go inside our ecosystem so you can feel, perform better & thrive daily!",
   ].join("\n");
 };
 
@@ -685,6 +809,10 @@ const textIncludesAnchor = (text: string, anchors: SpecificityAnchor[]) => {
 const getSpecificityFailures = (
   parsed: AssessmentResult,
   anchors: SpecificityAnchor[],
+  openingRequirements?: {
+    scoreGapText: string;
+    requiredMetrics: string[];
+  },
 ) => {
   if (!anchors.length) return [];
 
@@ -717,6 +845,31 @@ const getSpecificityFailures = (
   }
   if (bottleneckAnchor && !openingText.toLowerCase().includes(bottleneckAnchor.value.toLowerCase())) {
     failures.push("opening_thoughts_missing_bottleneck");
+  }
+  if (openingRequirements) {
+    const openingLower = openingText.toLowerCase();
+    const scoreTokens = openingRequirements.scoreGapText
+      .split("->")
+      .map((token) => token.trim())
+      .filter(Boolean);
+    if (scoreTokens.length && !scoreTokens.every((token) => openingText.includes(token))) {
+      failures.push("opening_thoughts_score_gap");
+    }
+    const requiredMetrics = openingRequirements.requiredMetrics.filter(Boolean);
+    if (requiredMetrics.length) {
+      const mentionedMetrics = requiredMetrics.filter((metric) =>
+        openingLower.includes(metric.toLowerCase()),
+      );
+      const minimumMetrics = Math.min(2, requiredMetrics.length);
+      if (mentionedMetrics.length < minimumMetrics) {
+        failures.push("opening_thoughts_metrics");
+      }
+    }
+    const mentionsScenarios = /\bscenario/.test(openingLower);
+    const mentionsRoadmap = /\broadmap|\bplan|\bsteps|\bsequence/.test(openingLower);
+    if (!mentionsScenarios && !mentionsRoadmap) {
+      failures.push("opening_thoughts_report_preview");
+    }
   }
   if (!textIncludesAnchor(metricsText, anchors)) {
     failures.push("metrics");
@@ -809,7 +962,7 @@ serve(async (req) => {
 
     const ip = getClientIp(req);
     const rateKey = `generate-assessment:${ip}`;
-    const rateLimit = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    const rateLimit = await checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateLimit.allowed) {
       return new Response(JSON.stringify({ error: "Too many requests" }), {
         status: 429,
@@ -949,11 +1102,11 @@ serve(async (req) => {
       `Keywords: ${keywords.join(", ") || "none"}`,
       `Body parts: ${bodyParts.join(", ") || "none"}`,
       `Prior interventions: ${interventions.join(", ") || "none"}`,
-      "Kynare assessment metrics, clusters, and sequencing rules",
+      "Fit2Go assessment metrics, clusters, and sequencing rules",
     ].join("\n");
 
     const metricsQuery = [
-      "Kynare metric definitions and scoring logic for Body State Stability, Load & Recovery Balance, Primary Constraint Clarity, System Integration, Outcome Alignment",
+      "Fit2Go metric definitions and scoring logic for Body State Stability, Load & Recovery Balance, Primary Constraint Clarity, System Integration, Outcome Alignment",
       `Primary goal: ${input.primaryGoal}`,
       `Current state: ${input.currentState}`,
       `Body context: ${input.bodyContext || "Not provided"}`,
@@ -963,7 +1116,7 @@ serve(async (req) => {
     ].join("\n");
 
     const scenariosQuery = [
-      "Kynare scenario patterns, risk flags, opportunity flags, and metric combinations",
+      "Fit2Go scenario patterns, risk flags, opportunity flags, and metric combinations",
       `Primary goal: ${input.primaryGoal}`,
       `Body context: ${input.bodyContext || "Not provided"}`,
       `Primary bottleneck: ${input.primaryBottleneck || "Not provided"}`,
@@ -973,7 +1126,7 @@ serve(async (req) => {
     ].join("\n");
 
     const sequencingQuery = [
-      "Kynare ecosystem components, outcome-based sequencing rules, and implementation roadmap",
+      "Fit2Go ecosystem components, outcome-based sequencing rules, and implementation roadmap",
       `Primary goal: ${input.primaryGoal}`,
       `Current state: ${input.currentState}`,
       `Body context: ${input.bodyContext || "Not provided"}`,
@@ -1012,7 +1165,7 @@ serve(async (req) => {
       count: number,
       label: string,
     ): Promise<KnowledgeChunk[]> => {
-      const { data, error } = await supabase.rpc("match_kynare_knowledge", {
+      const { data, error } = await supabase.rpc("match_fit2go_knowledge", {
         p_version_id: activeVersion.id,
         p_query_embedding: embedding,
         p_match_count: count,
@@ -1100,17 +1253,20 @@ ${chunk.content}`;
       { key: "system_history", value: sanitizedHistory },
     ]);
     const specificityAnchorsText = formatSpecificityAnchors(specificityAnchors);
+    const preferredMetrics = pickRelevantMetricLabels(input, null);
+    const preferredMetricsText =
+      preferredMetrics.join(", ") || "Body Reliability, Effort vs Recovery Balance";
 
-    const userPrompt = `KYNARE_KB_EXCERPTS:
+    const userPrompt = `FIT2GO_KB_EXCERPTS:
 ${kbContext}
 
-KYNARE_KB_METRICS_EXCERPTS:
+FIT2GO_KB_METRICS_EXCERPTS:
 ${kbMetricsContext}
 
-KYNARE_KB_SCENARIOS_EXCERPTS:
+FIT2GO_KB_SCENARIOS_EXCERPTS:
 ${kbScenariosContext}
 
-KYNARE_KB_SEQUENCING_EXCERPTS:
+FIT2GO_KB_SEQUENCING_EXCERPTS:
 ${kbSequencingContext}
 
 USER_INPUT:
@@ -1125,6 +1281,12 @@ USER_INPUT:
 - Body parts: ${bodyParts.join(", ") || "none"}
 - Prior interventions: ${interventions.join(", ") || "none"}
 - Signal hints: has_outcome=${hasOutcome}; has_clear_bottleneck=${hasClearBottleneck}; interventions_count=${interventions.length}
+
+PREFERRED_METRICS:
+${preferredMetricsText}
+
+SCORE_GAP_FORMAT:
+Use the format "12/25 -> 20-21/25" based on your metric_scores.
 
 SPECIFICITY_ANCHORS:
 ${specificityAnchorsText}`;
@@ -1189,16 +1351,38 @@ ${specificityAnchorsText}`;
       throw new Error("Assessment response was not valid JSON");
     }
 
+    const initialScores = parsed.metric_scores ?? {};
+    const initialMetrics = {
+      bss: clampScore(initialScores.bss),
+      lrb: clampScore(initialScores.lrb),
+      pcc: clampScore(initialScores.pcc),
+      sis: clampScore(initialScores.sis),
+      oas: clampScore(initialScores.oas),
+    };
+    const openingScoreSummary = getScoreSummary(initialMetrics);
+    const openingRequirements = {
+      scoreGapText: `${openingScoreSummary.currentTotal}/25 -> ${openingScoreSummary.targetRangeText}`,
+      requiredMetrics: pickRelevantMetricLabels(input, initialMetrics),
+    };
+
     let finalParsed = parsed;
-    const specificityFailures = getSpecificityFailures(parsed, specificityAnchors);
+    const specificityFailures = getSpecificityFailures(
+      parsed,
+      specificityAnchors,
+      openingRequirements,
+    );
     if (specificityFailures.length) {
       const revisionPrompt = `REVISION_REQUEST:
 The previous JSON is missing required specificity for: ${specificityFailures.join(", ")}.
-Revise the JSON to include SPECIFICITY_ANCHORS exactly as written. Opening Thoughts must include primary_bottleneck plus one other anchor. Ensure quick_takes are exactly two sentences (current + target) and mention bottleneck/body area only when relevant.
+Revise the JSON to include SPECIFICITY_ANCHORS exactly as written. Opening Thoughts must include primary_bottleneck plus one other anchor, the score gap, and the preferred metric names. Opening Thoughts should imply the metrics table, scenarios, and roadmap without section numbers. Ensure quick_takes are exactly two sentences (current + target) and mention bottleneck/body area only when relevant. Keep opening paragraphs to 2-3 paragraphs with 1-2 sentences each. Do not change metric_scores or other numeric values.
 Return full JSON with the same keys and structure.
 
 SPECIFICITY_ANCHORS:
 ${specificityAnchorsText}
+
+OPENING_REQUIREMENTS:
+- Score gap (use exactly): ${openingRequirements.scoreGapText}
+- Preferred metrics (use exact names): ${openingRequirements.requiredMetrics.join(", ") || "Body Reliability, Effort vs Recovery Balance"}
 
 PREVIOUS_JSON:
 ${content}`;

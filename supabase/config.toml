@@ -1,4 +1,7 @@
-project_id = "epyjjkwzwjjveqqfttpj"
+# Fit2Go standalone demo — set this to YOUR OWN Supabase project ref.
+# Do not point this at the original Kynare project: the migrations in this
+# repo rename kynare_kb_chunks -> fit2go_kb_chunks and would break it.
+project_id = "REPLACE_WITH_YOUR_PROJECT_REF"
 
 [functions.generate-assessment]
 verify_jwt = false

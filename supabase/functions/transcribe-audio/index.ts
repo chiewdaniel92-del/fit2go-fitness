@@ -102,7 +102,7 @@ serve(async (req) => {
 
     const ip = getClientIp(req);
     const rateKey = `transcribe-audio:${ip}`;
-    const rateLimit = checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    const rateLimit = await checkRateLimit(rateKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!rateLimit.allowed) {
       return new Response(JSON.stringify({ error: "Too many requests" }), {
         status: 429,

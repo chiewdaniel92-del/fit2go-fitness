@@ -190,7 +190,7 @@ def insert_chunks(base_url: str, api_key: str, version_id: str, chunks: List[Dic
             "token_count": chunk["token_count"],
             "embedding": embedding,
         })
-    request_json(f"{base_url}/rest/v1/kynare_kb_chunks", "POST", headers, payload)
+    request_json(f"{base_url}/rest/v1/fit2go_kb_chunks", "POST", headers, payload)
 
 
 def embed_texts(api_key: str, model: str, texts: List[str]) -> List[List[float]]:
@@ -204,7 +204,7 @@ def embed_texts(api_key: str, model: str, texts: List[str]) -> List[List[float]]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Ingest Kynare knowledge base into Supabase.")
+    parser = argparse.ArgumentParser(description="Ingest Fit2Go knowledge base into Supabase.")
     parser.add_argument(
         "--source",
         "--pdf",

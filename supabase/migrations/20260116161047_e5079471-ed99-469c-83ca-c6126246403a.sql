@@ -5,10 +5,10 @@ ON public.kb_versions
 FOR SELECT
 USING (is_active = true);
 
--- Add SELECT policy for kynare_kb_chunks through the active version relationship
+-- Add SELECT policy for fit2go_kb_chunks through the active version relationship
 -- This ensures chunks are only accessible when the version is active
 CREATE POLICY "Anyone can view KB chunks from active versions"
-ON public.kynare_kb_chunks
+ON public.fit2go_kb_chunks
 FOR SELECT
 USING (
   EXISTS (

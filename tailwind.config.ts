@@ -56,11 +56,13 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        kynare: {
-          orange: "hsl(var(--kynare-orange))",
-          "orange-light": "hsl(var(--kynare-orange-light))",
-          "orange-dark": "hsl(var(--kynare-orange-dark))",
-          cream: "hsl(var(--kynare-cream))",
+        fit2go: {
+          lime: "hsl(var(--fit2go-lime))",
+          "lime-light": "hsl(var(--fit2go-lime-light))",
+          "lime-dark": "hsl(var(--fit2go-lime-dark))",
+          navy: "hsl(var(--fit2go-navy))",
+          "navy-light": "hsl(var(--fit2go-navy-light))",
+          slate: "hsl(var(--fit2go-slate))",
         },
       },
       borderRadius: {
@@ -70,8 +72,8 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
+        display: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
       },
       keyframes: {
         "accordion-down": {

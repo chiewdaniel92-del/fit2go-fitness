@@ -53,9 +53,9 @@ export function AudioWaveform({ analyserNode, isRecording, className }: AudioWav
           
           // Create gradient from primary to lighter shade
           const gradient = ctx.createLinearGradient(0, centerY - barHeight / 2, 0, centerY + barHeight / 2);
-          gradient.addColorStop(0, "hsl(158, 55%, 45%)");
-          gradient.addColorStop(0.5, "hsl(158, 50%, 50%)");
-          gradient.addColorStop(1, "hsl(158, 45%, 55%)");
+          gradient.addColorStop(0, "hsl(76, 80%, 44%)");
+          gradient.addColorStop(0.5, "hsl(76, 90%, 60%)");
+          gradient.addColorStop(1, "hsl(76, 90%, 74%)");
           
           ctx.fillStyle = gradient;
           
@@ -68,7 +68,7 @@ export function AudioWaveform({ analyserNode, isRecording, className }: AudioWav
         // IDLE: Draw gentle animated wave to show the component is alive
         phase += 0.02;
         
-        ctx.fillStyle = "hsl(158, 30%, 60%)";
+        ctx.fillStyle = "hsl(76, 40%, 62%)";
         
         for (let i = 0; i < barCount; i++) {
           // Create a gentle wave animation

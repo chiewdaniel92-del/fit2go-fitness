@@ -2,60 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kynare Wellness Design System - Official Brand Theme */
+/* Fit2Go Design System - Official Brand Theme */
 
 @layer base {
   :root {
-    /* Kynare Black Theme - Single branded theme */
-    --background: 220 5% 14%;
-    --foreground: 0 0% 98%;
+    /* Fit2Go Midnight Theme - Single branded theme */
+    --background: 221 44% 10%;
+    --foreground: 210 40% 98%;
 
-    --card: 220 5% 10%;
-    --card-foreground: 0 0% 98%;
+    --card: 221 40% 13%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 5% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 221 40% 13%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Kynare Orange - exact brand color #f8401c */
-    --primary: 13 94% 54%;
-    --primary-foreground: 0 0% 100%;
+    /* Fit2Go Electric Lime - exact brand color #c3f53c */
+    --primary: 76 90% 60%;
+    --primary-foreground: 221 44% 10%;
 
-    /* Secondary warm tones */
-    --secondary: 13 20% 20%;
-    --secondary-foreground: 13 80% 70%;
+    /* Secondary cool tones */
+    --secondary: 221 35% 20%;
+    --secondary-foreground: 76 70% 78%;
 
-    /* Warm neutral muted */
-    --muted: 220 5% 20%;
-    --muted-foreground: 220 10% 60%;
+    /* Cool neutral muted */
+    --muted: 221 30% 18%;
+    --muted-foreground: 215 20% 65%;
 
     /* Accent matches primary */
-    --accent: 13 94% 54%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 76 90% 60%;
+    --accent-foreground: 221 44% 10%;
 
-    --destructive: 0 62.8% 40%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 5% 20%;
-    --input: 220 5% 20%;
-    --ring: 13 94% 54%;
+    --border: 221 30% 22%;
+    --input: 221 30% 22%;
+    --ring: 76 90% 60%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    /* Official Kynare brand tokens */
-    --kynare-orange: 13 94% 54%;
-    --kynare-charcoal: 220 5% 14%;
-    --kynare-cream: 43 20% 30%;
-    --kynare-grey-light: 0 0% 30%;
-    --kynare-grey-medium: 0 0% 40%;
+    /* Official Fit2Go brand tokens */
+    --fit2go-lime: 76 90% 60%;
+    --fit2go-lime-light: 76 90% 74%;
+    --fit2go-lime-dark: 76 80% 44%;
+    --fit2go-navy: 221 44% 10%;
+    --fit2go-navy-light: 221 40% 16%;
+    --fit2go-slate: 215 20% 65%;
 
-    --sidebar-background: 220 5% 14%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 13 94% 54%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 13 20% 20%;
-    --sidebar-accent-foreground: 13 80% 70%;
-    --sidebar-border: 220 5% 20%;
-    --sidebar-ring: 13 94% 54%;
+    --sidebar-background: 221 44% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 76 90% 60%;
+    --sidebar-primary-foreground: 221 44% 10%;
+    --sidebar-accent: 221 35% 20%;
+    --sidebar-accent-foreground: 76 70% 78%;
+    --sidebar-border: 221 30% 22%;
+    --sidebar-ring: 76 90% 60%;
   }
 }
 

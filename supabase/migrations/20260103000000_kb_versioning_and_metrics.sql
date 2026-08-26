@@ -18,7 +18,7 @@ create unique index kb_versions_active_idx
 
 alter table public.kb_versions enable row level security;
 
-create table public.kynare_kb_chunks (
+create table public.fit2go_kb_chunks (
   id uuid primary key default gen_random_uuid(),
   version_id uuid not null references public.kb_versions(id) on delete cascade,
   chunk_index integer not null,
@@ -30,16 +30,16 @@ create table public.kynare_kb_chunks (
   created_at timestamptz not null default now()
 );
 
-create index kynare_kb_chunks_version_idx
-  on public.kynare_kb_chunks (version_id);
+create index fit2go_kb_chunks_version_idx
+  on public.fit2go_kb_chunks (version_id);
 
-create index kynare_kb_chunks_embedding_idx
-  on public.kynare_kb_chunks using ivfflat (embedding vector_cosine_ops)
+create index fit2go_kb_chunks_embedding_idx
+  on public.fit2go_kb_chunks using ivfflat (embedding vector_cosine_ops)
   with (lists = 100);
 
-alter table public.kynare_kb_chunks enable row level security;
+alter table public.fit2go_kb_chunks enable row level security;
 
-create or replace function public.match_kynare_knowledge(
+create or replace function public.match_fit2go_knowledge(
   p_version_id uuid,
   p_query_embedding vector(1536),
   p_match_count integer default 10
@@ -60,7 +60,7 @@ as $$
     c.section,
     c.page,
     1 - (c.embedding <=> p_query_embedding) as similarity
-  from public.kynare_kb_chunks c
+  from public.fit2go_kb_chunks c
   where c.version_id = p_version_id
   order by c.embedding <=> p_query_embedding
   limit p_match_count;
@@ -70,7 +70,7 @@ create table public.assessment_kb_logs (
   id uuid primary key default gen_random_uuid(),
   assessment_id uuid not null references public.assessments(id) on delete cascade,
   kb_version_id uuid references public.kb_versions(id) on delete set null,
-  kb_chunk_id uuid references public.kynare_kb_chunks(id) on delete set null,
+  kb_chunk_id uuid references public.fit2go_kb_chunks(id) on delete set null,
   similarity float,
   created_at timestamptz not null default now()
 );

@@ -33,7 +33,8 @@ npm run dev
    supabase db push
    ```
 
-3. Ingest the knowledge base — see [dev_resources/kb_ingestion.md](dev_resources/kb_ingestion.md).
+3. Ingest the knowledge base with `scripts/ingest_kb.py` (see the script header for
+   the expected source format and required environment variables).
 4. Deploy the edge functions:
 
    ```sh

@@ -34,3 +34,6 @@ supabase/.temp/
 
 # Client-confidential working docs - local only, never published
 dev_resources/
+
+# Vercel CLI
+.vercel

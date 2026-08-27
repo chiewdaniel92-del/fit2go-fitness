@@ -33,8 +33,15 @@ npm run dev
    supabase db push
    ```
 
-3. Ingest the knowledge base with `scripts/ingest_kb.py` (see the script header for
-   the expected source format and required environment variables).
+3. Ingest the knowledge base:
+
+   ```sh
+   cp .env.ingest.example .env.ingest   # SUPABASE_URL, service-role key, OpenAI key
+   python scripts/ingest_kb.py --env-file .env.ingest      --source <your-kb-source.md>      --storage-path knowledge-base/<your-kb-source.md>      --version-label v1 --set-active
+   ```
+
+   Server-side secrets go in `.env.ingest`, never in `.env` — Vite bundles
+   `.env` into the client.
 4. Deploy the edge functions:
 
    ```sh
